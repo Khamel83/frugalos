@@ -1,0 +1,38 @@
+{
+  "updated_at": 1761108710,
+  "models": [
+    {
+      "id": "open/free-demo-1",
+      "price_in": 0.0,
+      "price_out": 0.0,
+      "privacy": "P0",
+      "viability": {
+        "extract": 8,
+        "summarize": 6,
+        "code": 5
+      }
+    },
+    {
+      "id": "provider/flash-mini",
+      "price_in": 0.25,
+      "price_out": 0.25,
+      "privacy": "P1",
+      "viability": {
+        "extract": 8,
+        "summarize": 7,
+        "code": 6
+      }
+    },
+    {
+      "id": "provider/strong-pro",
+      "price_in": 3.0,
+      "price_out": 15.0,
+      "privacy": "P1",
+      "viability": {
+        "extract": 9,
+        "summarize": 9,
+        "code": 8
+      }
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "vendor": {
+      "type": "string"
+    },
+    "date": {
+      "type": "string"
+    },
+    "total": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "vendor",
+    "total"
+  ],
+  "additionalProperties": false
+}

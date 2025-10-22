@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "frugalos"
+version = "0.0.1"
+description = "Local-first budgeted job runner for LLM tasks"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "typer>=0.12.5",
+  "rich>=13.7.1",
+  "requests>=2.32.3",
+  "pydantic>=2.8.2",
+  "jsonschema>=4.23.0",
+  "pyyaml>=6.0.2",
+  "sqlite-utils>=3.36",
+]
+
+[project.scripts]
+frugal = "frugalos.cli:app"

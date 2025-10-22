@@ -1,0 +1,18 @@
+models:
+  T1_text: {provider: ollama, name: "llama3.1:8b-instruct", temp: 0.2}
+  T1_code: {provider: ollama, name: "qwen2.5-coder:7b", temp: 0.1}
+  T2_default: {provider: openrouter, name: "provider/flash-mini", temp: 0.2}
+
+routing:
+  k_samples: 3
+  consensus_threshold: 0.67
+  max_retries_T1: 1
+  require_schema_valid: true
+
+privacy:
+  min_level: P0
+  allow_full_context: false
+
+budgets:
+  default_project_cents: 0
+  min_remote_cent: 1
