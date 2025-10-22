@@ -18,5 +18,8 @@ dependencies = [
   "sqlite-utils>=3.36",
 ]
 
+[tool.setuptools.packages.find]
+include = ["frugalos*"]
+
 [project.scripts]
 frugal = "frugalos.cli:app"

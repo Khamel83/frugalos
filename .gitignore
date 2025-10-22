@@ -6,3 +6,17 @@ dist/
 build/
 *.sqlite
 .DS_Store
+
+# OOS (Open Operating System) - copied from OOS repo
+modules/
+compositions/
+bin/oos-*.sh
+bin/dev-gate.sh
+bin/claude-*.sh
+
+# OOS (Open Operating System) - copied from OOS repo
+modules/
+compositions/
+bin/oos-*.sh
+bin/dev-gate.sh
+bin/claude-*.sh

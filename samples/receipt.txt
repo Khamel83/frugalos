@@ -1,0 +1,18 @@
+ACME Hardware Store
+123 Main Street
+Anytown, USA 12345
+
+Date: 2025-10-21
+Invoice #: INV-2025-1021
+
+Items:
+2x Hammer - $12.99 each
+1x Screwdriver Set - $24.95
+3x Nails (box) - $5.50 each
+
+Subtotal: $61.97
+Tax (8%): $4.96
+TOTAL: $66.93
+
+Payment due within 30 days.
+Thank you for your business!
