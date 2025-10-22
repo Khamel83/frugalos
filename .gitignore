@@ -1,11 +1,34 @@
-.venv
-__pycache__/
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Python build artifacts
 *.pyc
-.env
-dist/
+__pycache__/
+*.pyo
+*.pyd
+.Python
+*.egg-info/
 build/
-*.sqlite
+dist/
+*.egg
+
+# FrugalOS outputs
+out/
+
+# macOS
 .DS_Store
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment variables
+.env
+*.sqlite
 
 # OOS (Open Operating System) - copied from OOS repo
 modules/
