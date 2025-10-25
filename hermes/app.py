@@ -20,6 +20,8 @@ from hermes.config import Config
 from hermes.logger import setup_logger
 from hermes.tailscale import TailscaleClient
 from hermes.monitoring import get_metrics_collector
+from hermes.metalearning.conversation_manager import ConversationManager
+from hermes.metalearning.pattern_engine import PatternEngine
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -35,6 +37,8 @@ db = Database()
 logger = setup_logger('hermes.app')
 tailscale_client = TailscaleClient()
 metrics_collector = get_metrics_collector(config)
+conversation_manager = ConversationManager(config)
+pattern_engine = PatternEngine(config)
 
 @app.route('/')
 def index():
@@ -205,6 +209,57 @@ def get_alerts():
     hours = request.args.get('hours', 24, type=int)
     resolved = request.args.get('resolved', 'false').lower() == 'true'
     return jsonify({'alerts': metrics_collector.get_alerts(hours, resolved)})
+
+@app.route('/api/conversations/<int:conversation_id>')
+def get_conversation(conversation_id):
+    """Get conversation details"""
+    try:
+        summary = conversation_manager.get_conversation_summary(conversation_id)
+        messages = conversation_manager.get_conversation_messages(conversation_id)
+
+        return jsonify({
+            'summary': summary,
+            'messages': [
+                {
+                    'type': msg.message_type,
+                    'sender': msg.sender,
+                    'content': msg.content,
+                    'metadata': msg.metadata,
+                    'timestamp': msg.timestamp.isoformat()
+                }
+                for msg in messages
+            ]
+        })
+    except Exception as e:
+        logger.error(f"Error getting conversation: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/patterns/stats')
+def get_pattern_stats():
+    """Get pattern learning statistics"""
+    try:
+        stats = pattern_engine.get_pattern_statistics()
+        return jsonify(stats)
+    except Exception as e:
+        logger.error(f"Error getting pattern stats: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/patterns/suggestions', methods=['POST'])
+def get_pattern_suggestions():
+    """Get suggestions based on patterns"""
+    try:
+        data = request.get_json()
+        idea = data.get('idea')
+
+        if not idea:
+            return jsonify({'error': 'Missing idea field'}), 400
+
+        suggestions = pattern_engine.get_suggestions(idea)
+        return jsonify(suggestions)
+
+    except Exception as e:
+        logger.error(f"Error getting suggestions: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.errorhandler(404)
 def not_found(error):

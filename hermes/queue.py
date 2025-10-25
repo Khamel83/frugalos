@@ -17,6 +17,7 @@ from .tailscale import get_tailscale_client
 from .local_execution import LocalExecutionEngine
 from .error_handler import handle_error, ErrorCategory, ErrorSeverity
 from .notifications import get_notification_manager
+from .metalearning.conversation_manager import ConversationManager
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ class JobQueue:
         self.local_engine = LocalExecutionEngine(self.config)
         self.retry_manager = RetryManager(self.config)
         self.notification_manager = get_notification_manager(self.config)
+        self.conversation_manager = ConversationManager(self.config)
         self._queue = Queue()
         self._running = False
         self._worker_thread = None
@@ -101,11 +103,22 @@ class JobQueue:
         logger.info(f"Processing job {job.id}: {job.idea[:100]}...")
 
         try:
+            # Create conversation for meta-learning
+            conversation_id = self.conversation_manager.create_conversation(job.id, job.idea)
+
+            # Check if we should gather context first
+            if self.conversation_manager.should_gather_context(job.idea):
+                logger.info(f"Job {job.id} requires context gathering")
+                # For now, skip context gathering in automatic mode
+                # In interactive mode, this would pause for user input
+                pass
+
             # Update job status to running
             self.db.update_job_status(job.id, 'running', started_at=time.time())
             self.db.create_job_event(job.id, 'job_started', {
                 'idea': job.idea,
-                'priority': job.priority
+                'priority': job.priority,
+                'conversation_id': conversation_id
             })
 
             # Check if we should use local execution or remote Talos
@@ -168,6 +181,18 @@ class JobQueue:
             self.db.create_job_event(job.id, 'job_completed', final_result)
             logger.info(f"Job {job.id} completed successfully")
 
+            # Finalize conversation and learn from interaction
+            if 'conversation_id' in locals():
+                self.conversation_manager.finalize_conversation(
+                    conversation_id,
+                    {
+                        'success': True,
+                        'execution_time_ms': final_result.get('execution_time_ms', 0),
+                        'backend': final_result.get('backend_used', 'local'),
+                        'error_count': 0
+                    }
+                )
+
             # Send completion notification
             self.notification_manager.notify_job_completed(
                 job.id,
@@ -213,6 +238,17 @@ class JobQueue:
             self.db.create_job_event(job.id, 'job_failed', {
                 'error': error_message
             })
+
+            # Finalize conversation with failure
+            if 'conversation_id' in locals():
+                self.conversation_manager.finalize_conversation(
+                    conversation_id,
+                    {
+                        'success': False,
+                        'error_message': error_message,
+                        'error_count': 1
+                    }
+                )
 
             # Send failure notification
             self.notification_manager.notify_job_failed(
