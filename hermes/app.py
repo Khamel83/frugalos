@@ -22,6 +22,10 @@ from hermes.tailscale import TailscaleClient
 from hermes.monitoring import get_metrics_collector
 from hermes.metalearning.conversation_manager import ConversationManager
 from hermes.metalearning.pattern_engine import PatternEngine
+from hermes.metalearning.context_optimizer import ContextOptimizer
+from hermes.metalearning.adaptive_prioritizer import AdaptivePrioritizer
+from hermes.metalearning.execution_strategy import ExecutionStrategyEngine
+from hermes.metalearning.metrics import MetaLearningMetrics
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -39,6 +43,10 @@ tailscale_client = TailscaleClient()
 metrics_collector = get_metrics_collector(config)
 conversation_manager = ConversationManager(config)
 pattern_engine = PatternEngine(config)
+context_optimizer = ContextOptimizer(config)
+adaptive_prioritizer = AdaptivePrioritizer(config)
+execution_strategy_engine = ExecutionStrategyEngine(config)
+metalearning_metrics = MetaLearningMetrics(config)
 
 @app.route('/')
 def index():
@@ -259,6 +267,190 @@ def get_pattern_suggestions():
 
     except Exception as e:
         logger.error(f"Error getting suggestions: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/context/optimize/<int:conversation_id>')
+def optimize_context(conversation_id):
+    """Optimize conversation context for token efficiency"""
+    try:
+        target_tokens = request.args.get('target_tokens', type=int)
+        optimized = context_optimizer.optimize_context(conversation_id, target_tokens)
+        return jsonify(optimized)
+    except Exception as e:
+        logger.error(f"Error optimizing context: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/context/stats/<int:conversation_id>')
+def get_context_stats(conversation_id):
+    """Get context optimization statistics"""
+    try:
+        stats = context_optimizer.get_optimization_stats(conversation_id)
+        return jsonify(stats)
+    except Exception as e:
+        logger.error(f"Error getting context stats: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/questions/prioritize', methods=['POST'])
+def prioritize_questions():
+    """Adaptively prioritize questions"""
+    try:
+        data = request.get_json()
+        questions = data.get('questions', [])
+        conversation_id = data.get('conversation_id')
+        idea = data.get('idea', '')
+
+        if not questions or not conversation_id:
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        prioritized = adaptive_prioritizer.prioritize_questions(
+            questions,
+            conversation_id,
+            idea
+        )
+
+        # Suggest subset
+        max_questions = data.get('max_questions', 3)
+        to_ask, to_skip = adaptive_prioritizer.suggest_question_subset(
+            prioritized,
+            max_questions
+        )
+
+        return jsonify({
+            'all_prioritized': [
+                {
+                    'question_id': q.question_id,
+                    'question_text': q.question_text,
+                    'priority': q.dynamic_priority,
+                    'skip_likelihood': q.skip_likelihood,
+                    'reasoning': q.reasoning
+                }
+                for q in prioritized
+            ],
+            'to_ask': [
+                {
+                    'question_id': q.question_id,
+                    'question_text': q.question_text,
+                    'priority': q.dynamic_priority
+                }
+                for q in to_ask
+            ],
+            'to_skip': [q.question_id for q in to_skip]
+        })
+
+    except Exception as e:
+        logger.error(f"Error prioritizing questions: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/questions/prioritization-stats')
+def get_prioritization_stats():
+    """Get question prioritization statistics"""
+    try:
+        stats = adaptive_prioritizer.get_prioritization_stats()
+        return jsonify(stats)
+    except Exception as e:
+        logger.error(f"Error getting prioritization stats: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/strategy/determine', methods=['POST'])
+def determine_execution_strategy():
+    """Determine optimal execution strategy"""
+    try:
+        data = request.get_json()
+        idea = data.get('idea')
+
+        if not idea:
+            return jsonify({'error': 'Missing idea field'}), 400
+
+        context = data.get('context', {})
+        constraints = data.get('constraints', {})
+
+        strategy = execution_strategy_engine.determine_strategy(
+            idea,
+            context,
+            constraints
+        )
+
+        return jsonify({
+            'mode': strategy.mode.value,
+            'validation_level': strategy.validation_level.value,
+            'backend_preference': strategy.backend_preference,
+            'timeout_seconds': strategy.timeout_seconds,
+            'retry_strategy': strategy.retry_strategy,
+            'context_optimization': strategy.context_optimization,
+            'confidence_score': strategy.confidence_score,
+            'reasoning': strategy.reasoning,
+            'estimated_cost_cents': strategy.estimated_cost_cents,
+            'estimated_time_seconds': strategy.estimated_time_seconds
+        })
+
+    except Exception as e:
+        logger.error(f"Error determining strategy: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/strategy/stats')
+def get_strategy_stats():
+    """Get execution strategy statistics"""
+    try:
+        stats = execution_strategy_engine.get_strategy_stats()
+        return jsonify(stats)
+    except Exception as e:
+        logger.error(f"Error getting strategy stats: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/metalearning/metrics')
+def get_metalearning_metrics():
+    """Get comprehensive meta-learning metrics"""
+    try:
+        hours = request.args.get('hours', 24, type=int)
+        summary = metalearning_metrics.get_comprehensive_metrics(hours)
+
+        return jsonify({
+            'total_conversations': summary.total_conversations,
+            'total_questions_asked': summary.total_questions_asked,
+            'total_patterns_learned': summary.total_patterns_learned,
+            'avg_questions_per_conversation': summary.avg_questions_per_conversation,
+            'avg_confidence_score': summary.avg_confidence_score,
+            'question_effectiveness': summary.question_effectiveness,
+            'pattern_success_rate': summary.pattern_success_rate,
+            'context_optimization_ratio': summary.context_optimization_ratio,
+            'time_saved_seconds': summary.time_saved_seconds,
+            'insights': summary.insights
+        })
+    except Exception as e:
+        logger.error(f"Error getting metalearning metrics: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/metalearning/velocity')
+def get_learning_velocity():
+    """Get learning velocity metrics"""
+    try:
+        days = request.args.get('days', 7, type=int)
+        velocity = metalearning_metrics.get_learning_velocity(days)
+        return jsonify(velocity)
+    except Exception as e:
+        logger.error(f"Error getting learning velocity: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/metalearning/top-patterns')
+def get_top_patterns():
+    """Get top performing patterns"""
+    try:
+        limit = request.args.get('limit', 10, type=int)
+        patterns = metalearning_metrics.get_top_patterns(limit)
+        return jsonify({'patterns': patterns})
+    except Exception as e:
+        logger.error(f"Error getting top patterns: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/metalearning/report')
+def get_metalearning_report():
+    """Export comprehensive metrics report"""
+    try:
+        hours = request.args.get('hours', 24, type=int)
+        report = metalearning_metrics.export_metrics_report(hours)
+        return jsonify(report)
+    except Exception as e:
+        logger.error(f"Error getting metalearning report: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.errorhandler(404)
