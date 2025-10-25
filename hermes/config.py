@@ -36,8 +36,8 @@ class Config:
             'tailscale.api_key': os.getenv('TAILSCALE_API_KEY'),
             'tailscale.network': os.getenv('TAILSCALE_NETWORK'),
             'talos.endpoint': os.getenv('TALOS_ENDPOINT'),
-            'frugalos.allow_remote': os.getenv('FRUGAL_ALLOW_REMOTE', '0') == '1',
-            'frugalos.timeout': int(os.getenv('FRUGALOS_TIMEOUT', '300')),
+            'hermes.allow_remote': os.getenv('HERMES_ALLOW_REMOTE', '0') == '1',
+            'hermes.timeout': int(os.getenv('HERMES_TIMEOUT', '300')),
             'metalearning.enabled': os.getenv('HERMES_METALEARNING_ENABLED', 'true').lower() == 'true',
             'metalearning.max_questions': int(os.getenv('HERMES_METALEARNING_MAX_QUESTIONS', '3')),
         }
@@ -86,15 +86,27 @@ class Config:
             'timeout': self.get('tailscale.timeout', 30)
         }
 
-    def get_frugalos_config(self) -> Dict[str, Any]:
-        """Get FrugalOS configuration"""
+    def get_hermes_config(self) -> Dict[str, Any]:
+        """Get Hermes configuration"""
         return {
-            'allow_remote': self.get('frugalos.allow_remote', False),
-            'timeout': self.get('frugalos.timeout', 300),
-            'working_dir': self.get('frugalos.working_dir', 'out'),
+            'allow_remote': self.get('hermes.allow_remote', False),
+            'timeout': self.get('hermes.timeout', 300),
+            'working_dir': self.get('hermes.working_dir', 'out'),
             'models': {
-                'text': self.get('frugalos.models.text', 'llama3.1:8b-instruct'),
-                'code': self.get('frugalos.models.code', 'qwen2.5-coder:7b')
+                'text': self.get('hermes.models.text', 'llama3.1:8b-instruct'),
+                'code': self.get('hermes.models.code', 'qwen2.5-coder:7b')
+            }
+        }
+
+    def get_local_execution_config(self) -> Dict[str, Any]:
+        """Get local execution configuration"""
+        return {
+            'allow_remote': self.get('hermes.allow_remote', False),
+            'timeout': self.get('hermes.timeout', 300),
+            'working_dir': self.get('hermes.working_dir', 'out'),
+            'models': {
+                'text': self.get('hermes.models.text', 'llama3.1:8b-instruct'),
+                'code': self.get('hermes.models.code', 'qwen2.5-coder:7b')
             }
         }
 

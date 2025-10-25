@@ -58,6 +58,9 @@ class Database:
             self._create_backend_configs_table(conn)
             self._create_backend_performance_table(conn)
             self._create_system_metrics_table(conn)
+            self._create_error_reports_table(conn)
+            self._create_notifications_table(conn)
+            self._create_monitoring_alerts_table(conn)
 
             conn.commit()
             logger.info("Database initialization completed")
@@ -227,6 +230,59 @@ class Database:
                 metric_unit TEXT,
                 metadata TEXT,
                 recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+    def _create_error_reports_table(self, conn):
+        """Create error_reports table"""
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS error_reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                error_id TEXT NOT NULL UNIQUE,
+                category TEXT NOT NULL,
+                severity TEXT NOT NULL,
+                message TEXT NOT NULL,
+                traceback TEXT,
+                context TEXT,
+                timestamp TIMESTAMP NOT NULL,
+                job_id INTEGER,
+                user_id TEXT,
+                resolved BOOLEAN DEFAULT 0,
+                resolution_notes TEXT,
+                FOREIGN KEY (job_id) REFERENCES jobs (id)
+            )
+        """)
+
+    def _create_notifications_table(self, conn):
+        """Create notifications table"""
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                type TEXT NOT NULL,
+                title TEXT NOT NULL,
+                message TEXT NOT NULL,
+                priority TEXT NOT NULL,
+                timestamp TIMESTAMP NOT NULL,
+                job_id INTEGER,
+                user_id TEXT,
+                context TEXT,
+                telegram_sent BOOLEAN DEFAULT 0,
+                FOREIGN KEY (job_id) REFERENCES jobs (id)
+            )
+        """)
+
+    def _create_monitoring_alerts_table(self, conn):
+        """Create monitoring alerts table"""
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS monitoring_alerts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                severity TEXT NOT NULL,
+                alert_type TEXT NOT NULL,
+                message TEXT NOT NULL,
+                timestamp TIMESTAMP NOT NULL,
+                resolved BOOLEAN DEFAULT 0,
+                resolved_at TIMESTAMP,
+                resolution_notes TEXT
             )
         """)
 

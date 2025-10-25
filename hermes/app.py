@@ -19,6 +19,7 @@ from hermes.database import Database
 from hermes.config import Config
 from hermes.logger import setup_logger
 from hermes.tailscale import TailscaleClient
+from hermes.monitoring import get_metrics_collector
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -33,6 +34,7 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 db = Database()
 logger = setup_logger('hermes.app')
 tailscale_client = TailscaleClient()
+metrics_collector = get_metrics_collector(config)
 
 @app.route('/')
 def index():
@@ -42,6 +44,7 @@ def index():
 @app.route('/api/status')
 def status():
     """System status endpoint"""
+    metrics = metrics_collector.get_current_metrics()
     return jsonify({
         'status': 'operational',
         'timestamp': datetime.now().isoformat(),
@@ -49,8 +52,10 @@ def status():
         'components': {
             'database': 'connected',
             'tailscale': 'connected' if tailscale_client.test_connection() else 'disconnected',
-            'frugalos': 'available'
-        }
+            'hermes': 'available',
+            'monitoring': 'active' if metrics_collector._running else 'inactive'
+        },
+        'metrics': metrics
     })
 
 @app.route('/api/submit', methods=['POST'])
@@ -151,6 +156,12 @@ def health_check():
         # Test tailscale connection
         tailscale_status = 'connected' if tailscale_client.test_connection() else 'disconnected'
 
+        # Test local execution
+        from .local_execution import LocalExecutionEngine
+        local_engine = LocalExecutionEngine(config)
+        local_status = 'available' if local_engine.test_local_execution() else 'unavailable'
+
+        # Determine overall status
         overall_status = 'healthy' if db_status == 'healthy' else 'unhealthy'
 
         return jsonify({
@@ -158,7 +169,9 @@ def health_check():
             'timestamp': datetime.now().isoformat(),
             'components': {
                 'database': db_status,
-                'tailscale': tailscale_status
+                'tailscale': tailscale_status,
+                'local_execution': local_status,
+                'monitoring': 'active' if metrics_collector._running else 'inactive'
             }
         }), 200 if overall_status == 'healthy' else 503
 
@@ -169,6 +182,24 @@ def health_check():
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 503
+
+@app.route('/api/metrics')
+def get_metrics():
+    """Get current system metrics"""
+    return jsonify(metrics_collector.get_current_metrics())
+
+@app.route('/api/metrics/history')
+def get_metrics_history():
+    """Get metrics history"""
+    hours = request.args.get('hours', 24, type=int)
+    return jsonify(metrics_collector.get_metrics_history(hours))
+
+@app.route('/api/alerts')
+def get_alerts():
+    """Get monitoring alerts"""
+    hours = request.args.get('hours', 24, type=int)
+    resolved = request.args.get('resolved', 'false').lower() == 'true'
+    return jsonify({'alerts': metrics_collector.get_alerts(hours, resolved)})
 
 @app.errorhandler(404)
 def not_found(error):

@@ -66,6 +66,10 @@ def main():
     queue.start()
     logger.info("Job queue started")
 
+    # Start metrics collection
+    metrics_collector.start_collection()
+    logger.info("Metrics collection started")
+
     try:
         logger.info(f"Starting Hermes on {args.host}:{args.port}")
         app.run(
@@ -78,6 +82,7 @@ def main():
         logger.info("Shutting down Hermes...")
     finally:
         queue.stop()
+        metrics_collector.stop_collection()
         logger.info("Hermes stopped")
 
 if __name__ == '__main__':

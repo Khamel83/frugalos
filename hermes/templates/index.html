@@ -253,8 +253,8 @@
                 <span>Tailscale</span>
             </div>
             <div class="status-item">
-                <div class="status-indicator" id="frugalos-status"></div>
-                <span>FrugalOS</span>
+                <div class="status-indicator" id="hermes-status"></div>
+                <span>Hermes Local</span>
             </div>
         </div>
 
@@ -314,7 +314,7 @@
                     this.updateStatusIndicator('system-status', 'system-text', 'operational', 'System Operational');
                     this.updateStatusIndicator('database-status', null, status.components.database, 'Database');
                     this.updateStatusIndicator('tailscale-status', null, status.components.tailscale, 'Tailscale');
-                    this.updateStatusIndicator('frugalos-status', null, status.components.frugalos, 'FrugalOS');
+                    this.updateStatusIndicator('hermes-status', null, status.components.hermes, 'Hermes Local');
 
                 } catch (error) {
                     this.updateStatusIndicator('system-status', 'system-text', 'error', 'System Error');

@@ -136,6 +136,8 @@ class TailscaleClient:
             params['budget_cents'] = kwargs['budget_cents']
         if 'models' in kwargs:
             params['models'] = kwargs['models']
+        if 'project' in kwargs:
+            params['project'] = kwargs['project']
 
         return self.send_command('run', params)
 
