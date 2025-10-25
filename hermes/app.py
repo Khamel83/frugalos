@@ -18,14 +18,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from hermes.database import Database
 from hermes.config import Config
 from hermes.logger import setup_logger
-from hermes.tailscale import TailscaleClient
-from hermes.monitoring import get_metrics_collector
-from hermes.metalearning.conversation_manager import ConversationManager
-from hermes.metalearning.pattern_engine import PatternEngine
-from hermes.metalearning.context_optimizer import ContextOptimizer
-from hermes.metalearning.adaptive_prioritizer import AdaptivePrioritizer
-from hermes.metalearning.execution_strategy import ExecutionStrategyEngine
-from hermes.metalearning.metrics import MetaLearningMetrics
+from hermes.orchestrator import get_orchestrator
+from hermes.autonomous.learning_optimizer import OptimizationStrategy
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -39,14 +33,9 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 # Initialize components
 db = Database()
 logger = setup_logger('hermes.app')
-tailscale_client = TailscaleClient()
-metrics_collector = get_metrics_collector(config)
-conversation_manager = ConversationManager(config)
-pattern_engine = PatternEngine(config)
-context_optimizer = ContextOptimizer(config)
-adaptive_prioritizer = AdaptivePrioritizer(config)
-execution_strategy_engine = ExecutionStrategyEngine(config)
-metalearning_metrics = MetaLearningMetrics(config)
+
+# Get unified orchestrator
+orchestrator = get_orchestrator(config)
 
 @app.route('/')
 def index():
@@ -453,6 +442,112 @@ def get_metalearning_report():
         logger.error(f"Error getting metalearning report: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@app.route('/api/orchestrator/status')
+def get_orchestrator_status():
+    """Get comprehensive orchestrator status"""
+    try:
+        status = orchestrator.get_system_status()
+        return jsonify(status)
+    except Exception as e:
+        logger.error(f"Error getting orchestrator status: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/orchestrator/dashboard')
+def get_orchestrator_dashboard():
+    """Get dashboard data"""
+    try:
+        data = orchestrator.get_dashboard_data()
+        return jsonify(data)
+    except Exception as e:
+        logger.error(f"Error getting dashboard data: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/orchestrator/submit', methods=['POST'])
+def submit_orchestrated_job():
+    """Submit job through orchestrator"""
+    try:
+        data = request.get_json()
+        idea = data.get('idea')
+
+        if not idea:
+            return jsonify({'error': 'Missing idea field'}), 400
+
+        priority = data.get('priority', 3)
+        context = data.get('context', {})
+        interactive = data.get('interactive', False)
+
+        result = orchestrator.submit_job(idea, priority, context, interactive)
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Error submitting orchestrated job: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/orchestrator/execute', methods=['POST'])
+def execute_with_intelligence():
+    """Execute job with full intelligence stack"""
+    try:
+        data = request.get_json()
+        idea = data.get('idea')
+
+        if not idea:
+            return jsonify({'error': 'Missing idea field'}), 400
+
+        context = data.get('context', {})
+
+        result = orchestrator.execute_with_intelligence(idea, context)
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Error in intelligent execution: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/orchestrator/suggestions')
+def get_orchestrator_suggestions():
+    """Get proactive suggestions"""
+    try:
+        suggestions = orchestrator.get_suggestions()
+        return jsonify({'suggestions': suggestions})
+    except Exception as e:
+        logger.error(f"Error getting suggestions: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/orchestrator/optimizations')
+def get_orchestrator_optimizations():
+    """Get optimization recommendations"""
+    try:
+        strategy_name = request.args.get('strategy', 'BALANCED')
+        strategy = OptimizationStrategy[strategy_name]
+
+        optimizations = orchestrator.get_optimizations(strategy)
+
+        return jsonify({'optimizations': optimizations})
+    except Exception as e:
+        logger.error(f"Error getting optimizations: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/orchestrator/start', methods=['POST'])
+def start_orchestrator():
+    """Start orchestrator systems"""
+    try:
+        orchestrator.start()
+        return jsonify({'success': True, 'message': 'Orchestrator started'})
+    except Exception as e:
+        logger.error(f"Error starting orchestrator: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/orchestrator/stop', methods=['POST'])
+def stop_orchestrator():
+    """Stop orchestrator systems"""
+    try:
+        orchestrator.stop()
+        return jsonify({'success': True, 'message': 'Orchestrator stopped'})
+    except Exception as e:
+        logger.error(f"Error stopping orchestrator: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({'error': 'Endpoint not found'}), 404
@@ -468,6 +563,11 @@ if __name__ == '__main__':
 
     # Initialize database
     db.initialize()
+
+    # Initialize and start orchestrator
+    logger.info("Initializing Hermes Orchestrator...")
+    orchestrator.initialize()
+    orchestrator.start()
 
     logger.info("Starting Hermes application on port 5000")
     app.run(host='0.0.0.0', port=5000, debug=config.get('hermes.debug', False))

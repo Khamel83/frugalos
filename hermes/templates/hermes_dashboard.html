@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hermes - Intelligent AI Assistant Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #0a0e27;
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 2rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: #1a1f3a;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            border: 1px solid #2a2f4a;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 12px rgba(0,0,0,0.3);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid #2a2f4a;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .badge-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .badge-warning {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .badge-info {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .badge-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .stat {
+            background: #0f1629;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid #2a2f4a;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: #9ca3af;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .stat-value.good {
+            color: #10b981;
+        }
+
+        .stat-value.warning {
+            color: #f59e0b;
+        }
+
+        .stat-value.danger {
+            color: #ef4444;
+        }
+
+        .suggestion-list, .optimization-list {
+            list-style: none;
+        }
+
+        .suggestion-item, .optimization-item {
+            background: #0f1629;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .suggestion-item h4, .optimization-item h4 {
+            margin-bottom: 0.5rem;
+            color: #fff;
+        }
+
+        .suggestion-item p, .optimization-item p {
+            font-size: 0.9rem;
+            color: #9ca3af;
+            margin-bottom: 0.5rem;
+        }
+
+        .suggestion-meta, .optimization-meta {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-small {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #2a2f4a;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s ease;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #9ca3af;
+        }
+
+        .spinner {
+            border: 3px solid #2a2f4a;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .backend-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            background: #0f1629;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .status-dot.healthy {
+            background: #10b981;
+        }
+
+        .status-dot.degraded {
+            background: #f59e0b;
+        }
+
+        .status-dot.unhealthy {
+            background: #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🤖 Hermes</h1>
+        <p>Intelligent AI Assistant with Autonomous Capabilities</p>
+    </div>
+
+    <div class="container">
+        <!-- System Status Overview -->
+        <div class="grid">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">System Status</h3>
+                    <span class="badge badge-success" id="systemStatus">Operational</span>
+                </div>
+                <div class="stat-grid">
+                    <div class="stat">
+                        <div class="stat-label">Queue Size</div>
+                        <div class="stat-value" id="queueSize">0</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Active Jobs</div>
+                        <div class="stat-value" id="activeJobs">0</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Total Patterns</div>
+                        <div class="stat-value good" id="totalPatterns">0</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Success Rate</div>
+                        <div class="stat-value good" id="successRate">0%</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Cost & Budget</h3>
+                    <span class="badge badge-info" id="budgetStatus">Within Budget</span>
+                </div>
+                <div class="stat-grid">
+                    <div class="stat">
+                        <div class="stat-label">Today's Cost</div>
+                        <div class="stat-value" id="todayCost">$0.00</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Monthly Cost</div>
+                        <div class="stat-value" id="monthlyCost">$0.00</div>
+                    </div>
+                </div>
+                <div class="stat-label">Daily Budget Usage</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="budgetProgress" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Backend Health</h3>
+                </div>
+                <div id="backendHealth">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading backend status...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Suggestions -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">💡 Proactive Suggestions</h3>
+                <span class="badge badge-info" id="suggestionCount">0</span>
+            </div>
+            <ul class="suggestion-list" id="suggestionList">
+                <li class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading suggestions...</p>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Optimizations -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">⚡ Optimization Recommendations</h3>
+                <span class="badge badge-warning" id="optimizationCount">0</span>
+            </div>
+            <ul class="optimization-list" id="optimizationList">
+                <li class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading optimizations...</p>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Meta-Learning Insights -->
+        <div class="grid">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">🧠 Meta-Learning</h3>
+                </div>
+                <div class="stat-grid">
+                    <div class="stat">
+                        <div class="stat-label">Conversations</div>
+                        <div class="stat-value" id="totalConversations">0</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Questions Asked</div>
+                        <div class="stat-value" id="totalQuestions">0</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Pattern Success</div>
+                        <div class="stat-value good" id="patternSuccess">0%</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Time Saved</div>
+                        <div class="stat-value good" id="timeSaved">0s</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">🔄 Autonomous Operations</h3>
+                </div>
+                <div class="stat-grid">
+                    <div class="stat">
+                        <div class="stat-label">Scheduled Tasks</div>
+                        <div class="stat-value" id="scheduledTasks">0</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Active Automations</div>
+                        <div class="stat-value" id="activeAutomations">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Fetch and display dashboard data
+        async function loadDashboard() {
+            try {
+                const response = await fetch('/api/orchestrator/dashboard');
+                const data = await response.json();
+
+                // Update system status
+                document.getElementById('systemStatus').textContent = data.system?.status || 'Unknown';
+                document.getElementById('queueSize').textContent = data.jobs?.queue_status?.queue_size || 0;
+                document.getElementById('activeJobs').textContent = data.jobs?.queue_status?.running_tasks || 0;
+
+                // Update patterns
+                document.getElementById('totalPatterns').textContent = data.learning?.patterns?.total_patterns || 0;
+
+                // Update cost
+                const todayCost = (data.backends?.cost?.today?.cost_cents || 0) / 100;
+                const monthlyCost = (data.backends?.cost?.month?.cost_cents || 0) / 100;
+                document.getElementById('todayCost').textContent = `$${todayCost.toFixed(2)}`;
+                document.getElementById('monthlyCost').textContent = `$${monthlyCost.toFixed(2)}`;
+
+                const budgetUtilization = (data.backends?.cost?.today?.utilization || 0) * 100;
+                document.getElementById('budgetProgress').style.width = `${budgetUtilization}%`;
+
+                // Update backend health
+                updateBackendHealth(data.backends?.health);
+
+                // Update meta-learning
+                const metrics = data.learning?.metrics_summary;
+                if (metrics) {
+                    document.getElementById('totalConversations').textContent = metrics.total_conversations || 0;
+                    document.getElementById('totalQuestions').textContent = metrics.total_questions_asked || 0;
+                    document.getElementById('patternSuccess').textContent =
+                        `${((metrics.pattern_success_rate || 0) * 100).toFixed(0)}%`;
+                    document.getElementById('timeSaved').textContent =
+                        `${Math.floor(metrics.time_saved_seconds || 0)}s`;
+                }
+
+                // Update autonomous
+                document.getElementById('scheduledTasks').textContent = data.autonomous?.scheduled_tasks || 0;
+                document.getElementById('activeAutomations').textContent =
+                    data.autonomous?.automation_rules?.total_rules || 0;
+
+                // Update suggestions
+                updateSuggestions(data.suggestions || []);
+
+                // Update optimizations
+                updateOptimizations(data.optimizations || []);
+
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+            }
+        }
+
+        function updateBackendHealth(healthData) {
+            const container = document.getElementById('backendHealth');
+            if (!healthData || !healthData.backends) {
+                container.innerHTML = '<p>No backend data available</p>';
+                return;
+            }
+
+            container.innerHTML = '';
+            for (const [name, status] of Object.entries(healthData.backends)) {
+                const statusClass = status.status === 'healthy' ? 'healthy' :
+                                   status.status === 'degraded' ? 'degraded' : 'unhealthy';
+
+                const div = document.createElement('div');
+                div.className = 'backend-status';
+                div.innerHTML = `
+                    <span class="status-dot ${statusClass}"></span>
+                    <span>${name}</span>
+                    <span style="margin-left: auto; font-size: 0.85rem; color: #9ca3af;">
+                        ${status.response_time_ms?.toFixed(0)}ms
+                    </span>
+                `;
+                container.appendChild(div);
+            }
+        }
+
+        function updateSuggestions(suggestions) {
+            const list = document.getElementById('suggestionList');
+            document.getElementById('suggestionCount').textContent = suggestions.length;
+
+            if (suggestions.length === 0) {
+                list.innerHTML = '<li style="color: #9ca3af; padding: 1rem;">No suggestions at this time</li>';
+                return;
+            }
+
+            list.innerHTML = '';
+            suggestions.forEach(s => {
+                const li = document.createElement('li');
+                li.className = 'suggestion-item';
+                li.innerHTML = `
+                    <h4>${s.title}</h4>
+                    <p>${s.description}</p>
+                    <div class="suggestion-meta">
+                        <span class="badge badge-${s.type === 'optimization' ? 'warning' : 'info'}">
+                            ${s.type}
+                        </span>
+                        <span class="badge badge-info">
+                            ${(s.confidence * 100).toFixed(0)}% confidence
+                        </span>
+                        <button class="btn btn-small btn-success" onclick="acceptSuggestion('${s.suggestion_id}')">
+                            Accept
+                        </button>
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function updateOptimizations(optimizations) {
+            const list = document.getElementById('optimizationList');
+            document.getElementById('optimizationCount').textContent = optimizations.length;
+
+            if (optimizations.length === 0) {
+                list.innerHTML = '<li style="color: #9ca3af; padding: 1rem;">System is well optimized</li>';
+                return;
+            }
+
+            list.innerHTML = '';
+            optimizations.forEach(o => {
+                const li = document.createElement('li');
+                li.className = 'optimization-item';
+                li.innerHTML = `
+                    <h4>${o.title}</h4>
+                    <p>${o.description}</p>
+                    <div class="optimization-meta">
+                        <span class="badge badge-${o.impact === 'high' ? 'danger' : o.impact === 'medium' ? 'warning' : 'info'}">
+                            ${o.impact} impact
+                        </span>
+                        <span class="badge badge-info">
+                            ${o.effort} effort
+                        </span>
+                        <span class="badge badge-info">
+                            ${(o.confidence * 100).toFixed(0)}% confidence
+                        </span>
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function acceptSuggestion(suggestionId) {
+            console.log('Accepting suggestion:', suggestionId);
+            // Would implement actual acceptance logic
+        }
+
+        // Load dashboard on page load
+        loadDashboard();
+
+        // Refresh every 30 seconds
+        setInterval(loadDashboard, 30000);
+    </script>
+</body>
+</html>
