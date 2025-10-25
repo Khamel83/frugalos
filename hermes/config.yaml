@@ -1,0 +1,154 @@
+# Hermes Configuration File
+# This file contains all configurable settings for the Hermes AI Assistant
+
+# Application Settings
+hermes:
+  debug: false
+  host: "0.0.0.0"
+  port: 5000
+  secret_key: "change-this-in-production"
+  log_dir: "logs"
+  allow_remote: false  # Enable remote execution (Talos) when true
+  timeout: 300  # Default job timeout in seconds
+  working_dir: "out"  # Local execution working directory
+
+  # Model Configuration
+  models:
+    text: "llama3.1:8b-instruct"      # Default text model
+    code: "qwen2.5-coder:7b"           # Default code model
+
+# Database Configuration
+database:
+  path: "hermes.db"
+  timeout: 30
+  check_same_thread: false
+
+# Tailscale Configuration (for Talos communication)
+tailscale:
+  api_key: null  # Set your Tailscale API key
+  network: null  # Set your Tailscale network name
+  timeout: 30
+  use_mock: false  # Use mock client for testing
+
+# Talos Configuration (Remote execution endpoint)
+talos:
+  endpoint: null  # e.g., "http://100.100.100.100:8080"
+  timeout: 300
+
+# Meta-Learning Configuration
+metalearning:
+  enabled: true
+  max_questions: 3
+  min_confidence: 0.7
+  learning_rate: 0.1
+
+# Retry Configuration
+retry:
+  max_attempts: 3
+  base_delay: 1.0
+  max_delay: 60.0
+  backoff_multiplier: 2.0
+  jitter: true
+  strategy: "exponential_backoff"
+  circuit_break_threshold: 5
+  circuit_break_timeout: 300.0
+
+# Notification Configuration
+notifications:
+  # Job completion notifications
+  job_completed:
+    enabled: true
+    priority: "medium"
+    telegram: true
+
+  # Job failure notifications
+  job_failed:
+    enabled: true
+    priority: "high"
+    telegram: true
+
+  # System error notifications
+  system_error:
+    enabled: true
+    priority: "critical"
+    telegram: true
+
+  # Backend status notifications
+  backend_down:
+    enabled: true
+    priority: "high"
+    telegram: true
+
+  # High error rate notifications
+  high_error_rate:
+    enabled: true
+    priority: "high"
+    telegram: true
+
+  # Telegram configuration
+  telegram:
+    enabled: false
+    bot_token: "YOUR_BOT_TOKEN"  # Get from @BotFather
+    chat_id: "YOUR_CHAT_ID"      # Get from @userinfobot
+
+# Monitoring Configuration
+monitoring:
+  collection_interval: 60  # Seconds between metrics collection
+  retention_days: 30       # Days to keep metrics data
+
+  # Alert thresholds
+  thresholds:
+    cpu:
+      warning: 80.0   # CPU usage warning threshold (%)
+      critical: 95.0  # CPU usage critical threshold (%)
+
+    memory:
+      warning: 80.0   # Memory usage warning threshold (%)
+      critical: 95.0  # Memory usage critical threshold (%)
+
+    disk:
+      warning: 85.0   # Disk usage warning threshold (%)
+      critical: 95.0  # Disk usage critical threshold (%)
+
+    error_rate:
+      warning: 0.1    # Error rate warning threshold (10%)
+      critical: 0.2   # Error rate critical threshold (20%)
+
+    response_time:
+      warning: 5000   # Response time warning threshold (ms)
+      critical: 10000 # Response time critical threshold (ms)
+
+# Backend Configuration (for future multi-backend support)
+backends:
+  # Local Ollama backend
+  ollama_local:
+    type: "ollama"
+    endpoint: "http://localhost:11434"
+    status: "active"
+    priority: 1
+    is_default: true
+
+    # Model mappings
+    models:
+      text: "llama3.1:8b-instruct"
+      code: "qwen2.5-coder:7b"
+
+    # Configuration
+    config:
+      timeout: 300
+      max_tokens: 4096
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  log_dir: "logs"
+  max_bytes: 10485760  # 10MB
+  backup_count: 5
+  console_output: true
+  disable_external_loggers: true
+
+# Development Settings (only used when debug=true)
+development:
+  auto_reload: false
+  show_sql_queries: false
+  mock_external_services: false

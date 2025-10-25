@@ -67,6 +67,8 @@ def main():
     logger.info("Job queue started")
 
     # Start metrics collection
+    from hermes.monitoring import get_metrics_collector
+    metrics_collector = get_metrics_collector(config)
     metrics_collector.start_collection()
     logger.info("Metrics collection started")
 

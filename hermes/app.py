@@ -41,6 +41,11 @@ def index():
     """Main dashboard interface"""
     return render_template('index.html')
 
+@app.route('/dashboard')
+def dashboard():
+    """Advanced monitoring dashboard"""
+    return render_template('dashboard.html')
+
 @app.route('/api/status')
 def status():
     """System status endpoint"""

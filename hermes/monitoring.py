@@ -5,6 +5,7 @@ Comprehensive monitoring of system health and performance
 
 import psutil
 import time
+import json
 import logging
 import threading
 from typing import Dict, Any, List, Optional

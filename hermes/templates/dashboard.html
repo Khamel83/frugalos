@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hermes Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f7;
+            color: #1d1d1f;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        .nav {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .nav a {
+            text-decoration: none;
+            color: #007aff;
+            font-weight: 500;
+        }
+
+        .nav a:hover {
+            text-decoration: underline;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: #1d1d1f;
+        }
+
+        .metric-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .metric-item:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            font-weight: 500;
+            color: #666;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 0.5rem;
+        }
+
+        .status-healthy { background: #34c759; }
+        .status-warning { background: #ff9500; }
+        .status-critical { background: #ff3b30; }
+        .status-inactive { background: #8e8e93; }
+
+        .chart-container {
+            height: 300px;
+            position: relative;
+            margin-top: 1rem;
+        }
+
+        .alert-item {
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 8px;
+            border-left: 4px solid;
+        }
+
+        .alert-critical {
+            background: #fef2f2;
+            border-color: #dc2626;
+            color: #991b1b;
+        }
+
+        .alert-warning {
+            background: #fffbeb;
+            border-color: #d97706;
+            color: #92400e;
+        }
+
+        .alert-time {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 0.5rem;
+        }
+
+        .refresh-btn {
+            background: #007aff;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .refresh-btn:hover {
+            background: #0056cc;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+            .two-column {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .nav {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>🔮 Hermes Dashboard</h1>
+        <nav class="nav">
+            <a href="/">Submit Ideas</a>
+            <a href="/dashboard">Dashboard</a>
+            <button class="refresh-btn" onclick="refreshData()">Refresh</button>
+        </nav>
+    </header>
+
+    <div class="container">
+        <!-- System Metrics -->
+        <div class="metrics-grid">
+            <div class="card">
+                <h3>🖥️ System Resources</h3>
+                <div id="system-metrics" class="loading">Loading system metrics...</div>
+            </div>
+
+            <div class="card">
+                <h3>⚡ Application Metrics</h3>
+                <div id="app-metrics" class="loading">Loading application metrics...</div>
+            </div>
+
+            <div class="card">
+                <h3>🔧 Component Status</h3>
+                <div id="component-status" class="loading">Loading component status...</div>
+            </div>
+        </div>
+
+        <!-- Charts and Alerts -->
+        <div class="two-column">
+            <div class="card">
+                <h3>📈 Performance History</h3>
+                <div class="chart-container">
+                    <canvas id="performance-chart"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>🚨 Recent Alerts</h3>
+                <div id="alerts-container" class="loading">Loading alerts...</div>
+            </div>
+        </div>
+
+        <!-- Job Statistics -->
+        <div class="card" style="margin-top: 2rem;">
+            <h3>📊 Job Statistics</h3>
+            <div id="job-stats" class="loading">Loading job statistics...</div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let performanceChart = null;
+
+        async function refreshData() {
+            await Promise.all([
+                loadSystemMetrics(),
+                loadAppMetrics(),
+                loadComponentStatus(),
+                loadAlerts(),
+                loadJobStats(),
+                loadPerformanceHistory()
+            ]);
+        }
+
+        async function loadSystemMetrics() {
+            try {
+                const response = await fetch('/api/metrics');
+                const data = await response.json();
+                const system = data.system;
+
+                document.getElementById('system-metrics').innerHTML = `
+                    <div class="metric-item">
+                        <span class="metric-label">CPU Usage</span>
+                        <span class="metric-value">${system.cpu_percent.toFixed(1)}%</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Memory Usage</span>
+                        <span class="metric-value">${system.memory_percent.toFixed(1)}%</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Memory Available</span>
+                        <span class="metric-value">${system.memory_available_gb.toFixed(1)} GB</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Disk Usage</span>
+                        <span class="metric-value">${system.disk_usage_percent.toFixed(1)}%</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Disk Free</span>
+                        <span class="metric-value">${system.disk_free_gb.toFixed(1)} GB</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Load Average</span>
+                        <span class="metric-value">${system.load_average[0].toFixed(2)}</span>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('system-metrics').innerHTML = '<div class="metric-item">Error loading metrics</div>';
+            }
+        }
+
+        async function loadAppMetrics() {
+            try {
+                const response = await fetch('/api/metrics');
+                const data = await response.json();
+                const app = data.application;
+
+                document.getElementById('app-metrics').innerHTML = `
+                    <div class="metric-item">
+                        <span class="metric-label">Active Jobs</span>
+                        <span class="metric-value">${app.active_jobs}</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Queued Jobs</span>
+                        <span class="metric-value">${app.queued_jobs}</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Completed Jobs</span>
+                        <span class="metric-value">${app.completed_jobs}</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Failed Jobs</span>
+                        <span class="metric-value">${app.failed_jobs}</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Jobs/Minute</span>
+                        <span class="metric-value">${app.jobs_per_minute.toFixed(1)}</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Error Rate</span>
+                        <span class="metric-value">${(app.error_rate * 100).toFixed(1)}%</span>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('app-metrics').innerHTML = '<div class="metric-item">Error loading metrics</div>';
+            }
+        }
+
+        async function loadComponentStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                const components = data.components;
+
+                document.getElementById('component-status').innerHTML = `
+                    <div class="metric-item">
+                        <span class="metric-label">
+                            <span class="status-indicator ${components.database === 'connected' ? 'status-healthy' : 'status-critical'}"></span>
+                            Database
+                        </span>
+                        <span class="metric-value">${components.database}</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">
+                            <span class="status-indicator ${components.tailscale === 'connected' ? 'status-healthy' : 'status-inactive'}"></span>
+                            Tailscale
+                        </span>
+                        <span class="metric-value">${components.tailscale}</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">
+                            <span class="status-indicator ${components.hermes === 'available' ? 'status-healthy' : 'status-critical'}"></span>
+                            Hermes Local
+                        </span>
+                        <span class="metric-value">${components.hermes}</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">
+                            <span class="status-indicator ${components.monitoring === 'active' ? 'status-healthy' : 'status-inactive'}"></span>
+                            Monitoring
+                        </span>
+                        <span class="metric-value">${components.monitoring}</span>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('component-status').innerHTML = '<div class="metric-item">Error loading status</div>';
+            }
+        }
+
+        async function loadAlerts() {
+            try {
+                const response = await fetch('/api/alerts?hours=24');
+                const data = await response.json();
+                const alerts = data.alerts.slice(0, 5); // Show only 5 most recent
+
+                if (alerts.length === 0) {
+                    document.getElementById('alerts-container').innerHTML = '<div style="text-align: center; color: #666; padding: 2rem;">No recent alerts</div>';
+                    return;
+                }
+
+                document.getElementById('alerts-container').innerHTML = alerts.map(alert => `
+                    <div class="alert-item alert-${alert.severity}">
+                        <div><strong>${alert.alert_type.toUpperCase()}</strong>: ${alert.message}</div>
+                        <div class="alert-time">${new Date(alert.timestamp).toLocaleString()}</div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                document.getElementById('alerts-container').innerHTML = '<div class="metric-item">Error loading alerts</div>';
+            }
+        }
+
+        async function loadJobStats() {
+            try {
+                const response = await fetch('/api/jobs?limit=100');
+                const data = await response.json();
+                const jobs = data.jobs;
+
+                const stats = {
+                    total: jobs.length,
+                    completed: jobs.filter(j => j.status === 'completed').length,
+                    failed: jobs.filter(j => j.status === 'failed').length,
+                    running: jobs.filter(j => j.status === 'running').length,
+                    queued: jobs.filter(j => j.status === 'queued').length
+                };
+
+                const successRate = stats.total > 0 ? (stats.completed / stats.total * 100).toFixed(1) : 0;
+
+                document.getElementById('job-stats').innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+                        <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 8px;">
+                            <div style="font-size: 2rem; font-weight: bold; color: #007aff;">${stats.total}</div>
+                            <div style="color: #666;">Total Jobs</div>
+                        </div>
+                        <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 8px;">
+                            <div style="font-size: 2rem; font-weight: bold; color: #34c759;">${stats.completed}</div>
+                            <div style="color: #666;">Completed</div>
+                        </div>
+                        <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 8px;">
+                            <div style="font-size: 2rem; font-weight: bold; color: #ff3b30;">${stats.failed}</div>
+                            <div style="color: #666;">Failed</div>
+                        </div>
+                        <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 8px;">
+                            <div style="font-size: 2rem; font-weight: bold; color: #007aff;">${successRate}%</div>
+                            <div style="color: #666;">Success Rate</div>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('job-stats').innerHTML = '<div class="metric-item">Error loading job statistics</div>';
+            }
+        }
+
+        async function loadPerformanceHistory() {
+            try {
+                const response = await fetch('/api/metrics/history?hours=24');
+                const data = await response.json();
+
+                const labels = data.system.map(m => new Date(m.timestamp).toLocaleTimeString());
+                const cpuData = data.system.map(m => m.cpu_percent);
+                const memoryData = data.system.map(m => m.memory_percent);
+
+                if (performanceChart) {
+                    performanceChart.destroy();
+                }
+
+                const ctx = document.getElementById('performance-chart').getContext('2d');
+                performanceChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'CPU %',
+                                data: cpuData,
+                                borderColor: '#007aff',
+                                backgroundColor: 'rgba(0, 122, 255, 0.1)',
+                                tension: 0.4
+                            },
+                            {
+                                label: 'Memory %',
+                                data: memoryData,
+                                borderColor: '#34c759',
+                                backgroundColor: 'rgba(52, 199, 89, 0.1)',
+                                tension: 0.4
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading performance history:', error);
+            }
+        }
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshData();
+            // Auto-refresh every 30 seconds
+            setInterval(refreshData, 30000);
+        });
+    </script>
+</body>
+</html>
