@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hermes - Personal AI Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f7;
+            color: #1d1d1f;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: #86868b;
+            margin-bottom: 30px;
+        }
+
+        .status-bar {
+            background: white;
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #34c759;
+        }
+
+        .status-indicator.warning {
+            background: #ff9500;
+        }
+
+        .status-indicator.error {
+            background: #ff3b30;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #1d1d1f;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #1d1d1f;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 12px;
+            border: 2px solid #e5e5e7;
+            border-radius: 8px;
+            font-size: 16px;
+            resize: vertical;
+            transition: border-color 0.2s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #007aff;
+        }
+
+        .btn {
+            background: #007aff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .btn:hover {
+            background: #0056cc;
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            background: #c7c7cc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .jobs-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .job-item {
+            padding: 15px;
+            border-bottom: 1px solid #e5e5e7;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .job-item:last-child {
+            border-bottom: none;
+        }
+
+        .job-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .job-status.queued {
+            background: #e5e5e7;
+            color: #86868b;
+        }
+
+        .job-status.running {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .job-status.completed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .job-status.failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #86868b;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .timestamp {
+            font-size: 12px;
+            color: #86868b;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #86868b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Hermes</h1>
+            <div class="subtitle">Backend-Agnostic Personal AI Assistant</div>
+        </header>
+
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-indicator" id="system-status"></div>
+                <span id="system-text">System Status</span>
+            </div>
+            <div class="status-item">
+                <div class="status-indicator" id="database-status"></div>
+                <span>Database</span>
+            </div>
+            <div class="status-item">
+                <div class="status-indicator" id="tailscale-status"></div>
+                <span>Tailscale</span>
+            </div>
+            <div class="status-item">
+                <div class="status-indicator" id="frugalos-status"></div>
+                <span>FrugalOS</span>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="card">
+                <h2>Submit Idea</h2>
+                <div id="message-container"></div>
+                <form id="idea-form">
+                    <div class="input-group">
+                        <label for="idea">What would you like to accomplish?</label>
+                        <textarea
+                            id="idea"
+                            name="idea"
+                            placeholder="Enter your idea here... Be as specific as possible about what you want to achieve."
+                            required
+                        ></textarea>
+                    </div>
+                    <button type="submit" class="btn" id="submit-btn">
+                        Submit Idea
+                    </button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2>Recent Jobs</h2>
+                <div id="jobs-container">
+                    <div class="loading">Loading jobs...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class HermesApp {
+            constructor() {
+                this.setupEventListeners();
+                this.loadSystemStatus();
+                this.loadJobs();
+
+                // Auto-refresh every 30 seconds
+                setInterval(() => this.loadSystemStatus(), 30000);
+                setInterval(() => this.loadJobs(), 10000);
+            }
+
+            setupEventListeners() {
+                document.getElementById('idea-form').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.submitIdea();
+                });
+            }
+
+            async loadSystemStatus() {
+                try {
+                    const response = await fetch('/api/status');
+                    const status = await response.json();
+
+                    this.updateStatusIndicator('system-status', 'system-text', 'operational', 'System Operational');
+                    this.updateStatusIndicator('database-status', null, status.components.database, 'Database');
+                    this.updateStatusIndicator('tailscale-status', null, status.components.tailscale, 'Tailscale');
+                    this.updateStatusIndicator('frugalos-status', null, status.components.frugalos, 'FrugalOS');
+
+                } catch (error) {
+                    this.updateStatusIndicator('system-status', 'system-text', 'error', 'System Error');
+                }
+            }
+
+            updateStatusIndicator(indicatorId, textId, status, defaultText) {
+                const indicator = document.getElementById(indicatorId);
+                const text = textId ? document.getElementById(textId) : null;
+
+                indicator.className = 'status-indicator';
+
+                if (status === 'connected' || status === 'operational' || status === 'available') {
+                    indicator.classList.add('success');
+                    if (text) text.textContent = defaultText || 'Connected';
+                } else if (status === 'disconnected' || status === 'error') {
+                    indicator.classList.add('error');
+                    if (text) text.textContent = defaultText || 'Disconnected';
+                } else {
+                    indicator.classList.add('warning');
+                    if (text) text.textContent = defaultText || status;
+                }
+            }
+
+            async loadJobs() {
+                try {
+                    const response = await fetch('/api/jobs?limit=10');
+                    const data = await response.json();
+
+                    const container = document.getElementById('jobs-container');
+
+                    if (data.jobs.length === 0) {
+                        container.innerHTML = '<div class="empty-state">No jobs yet. Submit your first idea!</div>';
+                        return;
+                    }
+
+                    container.innerHTML = data.jobs.map(job => `
+                        <div class="job-item">
+                            <div>
+                                <div>${this.truncateText(job.idea, 60)}</div>
+                                <div class="timestamp">${new Date(job.created_at).toLocaleString()}</div>
+                            </div>
+                            <div class="job-status ${job.status}">${job.status}</div>
+                        </div>
+                    `).join('');
+
+                } catch (error) {
+                    document.getElementById('jobs-container').innerHTML =
+                        '<div class="error">Failed to load jobs</div>';
+                }
+            }
+
+            async submitIdea() {
+                const ideaTextarea = document.getElementById('idea');
+                const submitBtn = document.getElementById('submit-btn');
+                const messageContainer = document.getElementById('message-container');
+
+                const idea = ideaTextarea.value.trim();
+                if (!idea) return;
+
+                // Disable form
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Submitting...';
+                messageContainer.innerHTML = '';
+
+                try {
+                    const response = await fetch('/api/submit', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ idea })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        messageContainer.innerHTML =
+                            `<div class="success">Idea submitted! Job ID: ${data.job_id}</div>`;
+                        ideaTextarea.value = '';
+                        this.loadJobs();
+
+                        // Clear success message after 5 seconds
+                        setTimeout(() => {
+                            messageContainer.innerHTML = '';
+                        }, 5000);
+                    } else {
+                        messageContainer.innerHTML =
+                            `<div class="error">Error: ${data.error}</div>`;
+                    }
+
+                } catch (error) {
+                    messageContainer.innerHTML =
+                        '<div class="error">Failed to submit idea. Please try again.</div>';
+                } finally {
+                    // Re-enable form
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit Idea';
+                }
+            }
+
+            truncateText(text, maxLength) {
+                return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+            }
+        }
+
+        // Initialize app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new HermesApp();
+        });
+    </script>
+</body>
+</html>
