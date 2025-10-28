@@ -5,11 +5,19 @@ Hermes is a comprehensive, production-ready AI assistant system with backend-agn
 ## ✨ Features
 
 ### 🎯 Core Capabilities
+- **🆕 Local-First AI Router**: Smart routing system that tries local models first, shows upgrade costs transparently
 - **Backend-Agnostic Architecture**: Swap between local (Ollama), remote, or any AI backend seamlessly
 - **Local-First Execution**: Privacy-focused local AI processing with Ollama integration
 - **Meta-Learning System**: Intelligent question generation and pattern recognition
 - **Autonomous Operation**: Process ideas without manual intervention
 - **Job Queue Management**: Asynchronous task processing with priority support
+
+### 💰 Smart Cost Management (NEW)
+- **Always Try Local First**: 4 local models (FREE) before considering cloud
+- **Transparent Cost Analysis**: See single-task vs full session costs
+- **Session-Aware Routing**: Maintains context across multiple tasks
+- **Quality Scoring**: 0-10 scale with 9/10 target threshold
+- **Real-Time Cost Tracking**: SQLite database tracks all costs and sessions
 
 ### 🛡️ Production-Ready Features
 - **Intelligent Retry System**: Exponential backoff with circuit breakers
@@ -65,6 +73,50 @@ python run_hermes.py --host 0.0.0.0 --port 5000 --debug
 The web interface will be available at `http://localhost:5000`
 
 ## 📖 Usage
+
+### 🆕 Local-First Router (NEW)
+
+**Interactive CLI Mode:**
+```bash
+# Start interactive session
+python3 -m hermes.routing.cli --interactive
+
+# Commands:
+#   /new     - Start new session
+#   /status  - Show session status
+#   /quit    - Exit
+```
+
+**Single Prompt Mode:**
+```bash
+# Try local first, show upgrade options if needed
+python3 -m hermes.routing.cli "Design a REST API"
+
+# Auto-upgrade to cloud if local insufficient
+python3 -m hermes.routing.cli "Complex task" --auto-upgrade
+
+# Continue existing session
+python3 -m hermes.routing.cli "Follow-up" --session SESSION_ID
+```
+
+**API Endpoints:**
+```bash
+# Process prompt (local-first)
+curl -X POST http://localhost:8000/api/v1/routing/process \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Write a function", "auto_upgrade": false}'
+
+# Upgrade to cloud model
+curl -X POST http://localhost:8000/api/v1/routing/upgrade \
+  -H "Content-Type: application/json" \
+  -d '{"session_id": "...", "prompt": "...", "model": "anthropic/claude-3.5-sonnet"}'
+
+# Get session status
+curl http://localhost:8000/api/v1/routing/session/SESSION_ID
+
+# Cost statistics
+curl http://localhost:8000/api/v1/routing/stats?days=7
+```
 
 ### Web Interface
 
