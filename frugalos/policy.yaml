@@ -16,3 +16,33 @@ privacy:
 budgets:
   default_project_cents: 0
   min_remote_cent: 1
+
+# Prompt optimization configuration (local-first, cost-conscious)
+prompts:
+  # Template configuration
+  default_template_version: "1.0"
+  template_cache_ttl_seconds: 3600  # 1 hour cache for built prompts
+
+  # Optimization settings (Phase 3)
+  optimization_enabled: true
+  optimization_lookback_hours: 24
+  optimization_model: "qwen2.5-coder:7b"  # Local Ollama model
+
+  # Few-shot examples (Phase 4)
+  max_examples_per_prompt: 3
+  example_quality_threshold: 0.8  # consensus agreement threshold
+  example_freshness_days: 7
+
+  # Context compression (Phase 5)
+  context_max_chars: 4000
+  compression_threshold: 4000
+  compression_model: "llama3.1:8b-instruct"
+
+  # A/B testing for new template versions (Phase 3)
+  ab_test_enabled: true
+  ab_test_new_version_traffic: 0.2  # 20% traffic to new version
+  ab_test_promotion_threshold: 0.1  # +10% improvement needed
+
+  # Task-specific templates (Phase 6)
+  task_classification_enabled: true
+  fallback_template: "1.0"
