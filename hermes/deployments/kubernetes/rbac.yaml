@@ -1,0 +1,228 @@
+---
+# Service Accounts and RBAC for Hermes Components
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: hermes-monitoring
+  labels:
+    app: hermes-ai-assistant
+    component: prometheus
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: grafana
+  namespace: hermes-monitoring
+  labels:
+    app: hermes-ai-assistant
+    component: grafana
+---
+# Prometheus RBAC
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus
+  labels:
+    app: hermes-ai-assistant
+    component: prometheus
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - nodes/metrics
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources:
+  - configmaps
+  verbs: ["get"]
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs: ["get", "list", "watch"]
+- nonResourceURLs:
+  - "/metrics"
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+  labels:
+    app: hermes-ai-assistant
+    component: prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus
+subjects:
+- kind: ServiceAccount
+  name: prometheus
+  namespace: hermes-monitoring
+---
+# Grafana RBAC
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: grafana
+  labels:
+    app: hermes-ai-assistant
+    component: grafana
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - pods
+  - services
+  - endpoints
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources:
+  - configmaps
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: grafana
+  labels:
+    app: hermes-ai-assistant
+    component: grafana
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: grafana
+subjects:
+- kind: ServiceAccount
+  name: grafana
+  namespace: hermes-monitoring
+---
+# Hermes Service Account RBAC
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: hermes-role
+  namespace: hermes
+  labels:
+    app: hermes-ai-assistant
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps", "secrets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: hermes-rolebinding
+  namespace: hermes
+  labels:
+    app: hermes-ai-assistant
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: hermes-role
+subjects:
+- kind: ServiceAccount
+  name: hermes-service-account
+  namespace: hermes
+---
+# Network Policies
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hermes-network-policy
+  namespace: hermes
+  labels:
+    app: hermes-ai-assistant
+spec:
+  podSelector:
+    matchLabels:
+      app: hermes-ai-assistant
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: hermes-ai-assistant
+    - podSelector:
+        matchLabels:
+          component: nginx
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: hermes-ai-assistant
+    - podSelector:
+        matchLabels:
+          component: postgres
+    - podSelector:
+        matchLabels:
+          component: redis
+    ports:
+    - protocol: TCP
+      port: 5432
+    - protocol: TCP
+      port: 6379
+    - protocol: TCP
+      port: 8080
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: monitoring-network-policy
+  namespace: hermes-monitoring
+  labels:
+    app: hermes-ai-assistant
+spec:
+  podSelector:
+    matchLabels:
+      app: hermes-ai-assistant
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: hermes
+    - podSelector:
+        matchLabels:
+          app: hermes-ai-assistant
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: hermes-ai-assistant
+    ports:
+    - protocol: TCP
+      port: 9090
+    - protocol: TCP
+      port: 3000
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53

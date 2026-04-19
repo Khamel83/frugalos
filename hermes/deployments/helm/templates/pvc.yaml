@@ -1,0 +1,31 @@
+{{- range $name, $config := .Values.persistence }}
+{{- if $config.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "hermes-ai-assistant.fullname" $ }}-{{ $name }}
+  labels:
+    {{- include "hermes-ai-assistant.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+  {{- with $config.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  accessMode:
+    {{- if kindIs "string" $config.accessMode }}
+    - {{ $config.accessMode }}
+    {{- else }}
+    {{- toYaml $config.accessMode | nindent 4 }}
+    {{- end }}
+  resources:
+    requests:
+      storage: {{ $config.size }}
+  {{- if $config.storageClass }}
+  storageClassName: {{ $config.storageClass }}
+  {{- else if $.Values.global.storageClass }}
+  storageClassName: {{ $.Values.global.storageClass }}
+  {{- end }}
+{{- end }}
+{{- end }}

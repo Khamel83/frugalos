@@ -1,0 +1,697 @@
+# Global Load Balancer Configuration for Multi-Region Deployment
+# This configuration sets up AWS Route 53 for global traffic distribution
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: global-lb-config
+  namespace: kube-system
+data:
+  route53-config.yaml: |
+    # AWS Route 53 Configuration for Hermes AI Assistant
+    hosted-zone: hermes-ai.com
+    regions:
+      - name: primary
+        region: us-west-2
+        endpoint: hermes-primary.hermes-ai.com
+        health-check: hermes-primary-health.hermes-ai.com
+        weight: 100
+        latency: 50
+        failover: false
+      - name: secondary
+        region: us-east-1
+        endpoint: hermes-secondary.hermes-ai.com
+        health-check: hermes-secondary-health.hermes-ai.com
+        weight: 0
+        latency: 50
+        failover: true
+      - name: dr
+        region: eu-west-1
+        endpoint: hermes-dr.hermes-ai.com
+        health-check: hermes-dr-health.hermes-ai.com
+        weight: 0
+        latency: 100
+        failover: true
+    dns-ttl: 60
+    health-check:
+      interval: 30
+      timeout: 5
+      failure-threshold: 3
+      success-threshold: 2
+      protocol: HTTPS
+      port: 443
+      path: /api/orchestrator/status
+---
+# Global Traffic Manager Configuration
+apiVersion: v1
+kind: Service
+metadata:
+  name: global-lb
+  namespace: kube-system
+  labels:
+    app: global-lb
+    component: load-balancer
+spec:
+  type: LoadBalancer
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  - name: https
+    port: 443
+    targetPort: 443
+    protocol: TCP
+  selector:
+    app: nginx-ingress
+---
+# Regional Health Check Endpoints
+apiVersion: v1
+kind: Service
+metadata:
+  name: health-check
+  namespace: hermes
+  labels:
+    app: hermes-ai-assistant
+    component: health-check
+  annotations:
+    # Cloud Load Balancer Health Check
+    cloud.google.com/load-balancer-type: External
+    cloud.google.com/health-check-path: "/api/orchestrator/status"
+    cloud.google.com/health-check-port: "8080"
+    # AWS Load Balancer Health Check
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: "/api/orchestrator/status"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval: "30"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout: "5"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold: "3"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold: "2"
+spec:
+  type: ClusterIP
+  ports:
+  - name: health
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app: hermes-ai-assistant
+---
+# Regional Service Mesh Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: service-mesh-config
+  namespace: istio-system
+data:
+  mesh.yaml: |
+    # Istio Service Mesh Configuration for Multi-Region
+    apiVersion: v1
+    kind: Mesh
+    metadata:
+      name: hermes-mesh
+    spec:
+      accessLogLevel: INFO
+      defaultConfig:
+        discoveryTimeout: 15s
+        connectTimeout: 10s
+        tcpKeepalive:
+          time: 7200s
+          interval: 75s
+        proxyStatsMatcher:
+          inclusionRegexps:
+          - ".*"
+      proxyStatsMatcher:
+        inclusionPrefixes:
+        - "outbound|inbound|server|cluster"
+      rootNamespace: istio-system
+      trustDomain: "hermes-ai.com"
+    trafficManagement:
+      apiVersion: v1
+      kind: VirtualService
+      metadata:
+        name: hermes-global
+        namespace: hermes
+      spec:
+        hosts:
+        - hermes.hermes-ai.com
+        http:
+        - match:
+          - uri:
+              prefix: /
+          fault:
+            delay:
+              percentage:
+                value: 0.1
+              fixedDelay: 5s
+          retries:
+            attempts: 3
+            perTryTimeout: 2s
+            retryOn: gateway-error,connect-failure,refused-stream
+          timeout: 30s
+          route:
+          - destination:
+              host: hermes-service
+              subset: primary
+              port:
+                number: 8080
+            weight: 90
+          - destination:
+              host: hermes-service
+              subset: secondary
+              port:
+                number: 8080
+            weight: 10
+---
+# Cross-Region Service Discovery
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cross-region-config
+  namespace: hermes
+data:
+  regions.json: |
+    {
+      "primary": {
+        "name": "us-west-2",
+        "endpoint": "hermes-primary.hermes-ai.com",
+        "api_endpoint": "https://api.hermes-primary.hermes-ai.com",
+        "k8s_endpoint": "https://hermes-primary-k8s.hermes-ai.com",
+        "capacity": {
+          "pods": 10,
+          "cpu": 20000,
+          "memory": 40000
+        },
+        "health": {
+          "status": "healthy",
+          "last_check": "2024-01-01T12:00:00Z"
+        }
+      },
+      "secondary": {
+        "name": "us-east-1",
+        "endpoint": "hermes-secondary.hermes-ai.com",
+        "api_endpoint": "https://api.hermes-secondary.hermes-ai.com",
+        "k8s_endpoint": "https://hermes-secondary-k8s.hermes-ai.com",
+        "capacity": {
+          "pods": 5,
+          "cpu": 10000,
+          "memory": 20000
+        },
+        "health": {
+          "status": "healthy",
+          "last_check": "2024-01-01T12:00:00Z"
+        }
+      },
+      "dr": {
+        "name": "eu-west-1",
+        "endpoint": "hermes-dr.hermes-ai.com",
+        "api_endpoint": "https://api.hermes-dr.hermes-ai.com",
+        "k8s_endpoint": "https://hermes-dr-k8s.hermes-ai.com",
+        "capacity": {
+          "pods": 3,
+          "cpu": 6000,
+          "memory": 12000
+        },
+        "health": {
+          "status": "standby",
+          "last_check": "2024-01-01T12:00:00Z"
+        }
+      }
+    }
+  failover-policy.json: |
+    {
+      "triggers": {
+        "health_check_failure": {
+          "threshold": 3,
+          "window": "5m"
+        },
+        "high_error_rate": {
+          "threshold": 0.05,
+          "window": "2m"
+        },
+        "high_latency": {
+          "threshold": 2000,
+          "window": "1m"
+        },
+        "manual": {
+          "enabled": true
+        }
+      },
+      "actions": {
+        "traffic_shift": {
+          "enabled": true,
+          "step_size": 0.25,
+          "max_shift": 0.75
+        },
+        "alerting": {
+          "enabled": true,
+          "channels": ["slack", "email", "pagerduty"]
+        },
+        "auto_failover": {
+          "enabled": true,
+          "timeout": "5m"
+        }
+      },
+      "rollback": {
+        "enabled": true,
+        "trigger": "health_restored",
+        "delay": "10m"
+      }
+    }
+---
+# Multi-Region Database Replication
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: database-replication-config
+  namespace: hermes
+data:
+  replication-config.yaml: |
+    # PostgreSQL Streaming Replication Configuration
+    primary:
+      region: us-west-2
+      endpoint: postgres-primary.hermes-ai.com
+      port: 5432
+      database: hermes
+      backup_schedule: "0 */6 * * *"
+      retention_days: 30
+
+    replicas:
+      secondary:
+        region: us-east-1
+        endpoint: postgres-secondary.hermes-ai.com
+        port: 5432
+        mode: hot_standby
+        priority: 100
+
+      dr:
+        region: eu-west-1
+        endpoint: postgres-dr.hermes-ai.com
+        port: 5432
+        mode: warm_standby
+        priority: 90
+
+    replication:
+      wal_level: replica
+      max_wal_senders: 3
+      max_replication_slots: 3
+      wal_keep_segments: 32
+      archive_mode: always
+      archive_command: "aws s3 cp %p s3://hermes-postgres-wal/%f"
+
+    failover:
+      automatic: true
+      health_check_interval: 10
+      election_timeout: 30
+      promote_timeout: 60
+
+    monitoring:
+      replication_lag_threshold: 10
+      connection_pool_size: 20
+      max_connections: 200
+---
+# Multi-Region Cache Synchronization
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cache-sync-config
+  namespace: hermes
+data:
+  redis-cluster-config.yaml: |
+    # Redis Cluster Configuration for Multi-Region
+    cluster:
+      name: hermes-cache
+      replication: true
+
+    nodes:
+      primary:
+        region: us-west-2
+        master:
+          endpoint: redis-master-primary.hermes-ai.com
+          port: 6379
+        replicas:
+          - endpoint: redis-replica-1-primary.hermes-ai.com
+            port: 6379
+          - endpoint: redis-replica-2-primary.hermes-ai.com
+            port: 6379
+
+      secondary:
+        region: us-east-1
+        master:
+          endpoint: redis-master-secondary.hermes-ai.com
+          port: 6379
+        replicas:
+          - endpoint: redis-replica-1-secondary.hermes-ai.com
+            port: 6379
+
+      dr:
+        region: eu-west-1
+        master:
+          endpoint: redis-master-dr.hermes-ai.com
+          port: 6379
+
+    replication:
+      mode: master-slave
+      sync_method: async
+      replication_lag_threshold: 1
+      auto_failover: true
+
+    data_sync:
+      cross_region:
+        enabled: true
+        method: aws_s3
+        bucket: hermes-redis-backups
+        schedule: "0 */2 * * *"
+        compression: true
+        encryption: true
+
+    monitoring:
+      memory_usage_threshold: 80
+      connection_limit: 1000
+      keyspace_notifications: true
+---
+# Global Configuration Synchronization
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-sync-config
+  namespace: hermes
+data:
+  sync-config.yaml: |
+    # Configuration Synchronization Across Regions
+    sync_targets:
+      configmaps:
+        - name: hermes-config
+          source: primary
+          destinations: [secondary, dr]
+          sync_method: s3
+
+      secrets:
+        - name: hermes-secrets
+          source: primary
+          destinations: [secondary, dr]
+          sync_method: kms_encrypted_s3
+
+      certificates:
+        - name: hermes-tls
+          source: primary
+          destinations: [secondary, dr]
+          sync_method: acm_cross_region
+
+    sync_schedule: "*/5 * * * *"  # Every 5 minutes
+    conflict_resolution: "latest_wins"
+    validation:
+      enabled: true
+      checksum_verification: true
+      schema_validation: true
+
+    notifications:
+      sync_success: ["slack"]
+      sync_failure: ["slack", "email", "pagerduty"]
+      conflict_detected: ["slack", "email"]
+
+    encryption:
+      enabled: true
+      kms_key_id: "alias/hermes-config-key"
+      algorithm: "AES256"
+---
+# Global Traffic Manager Scripts
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gtm-scripts
+  namespace: hermes
+data:
+  failover.py: |
+    #!/usr/bin/env python3
+    """
+    Global Traffic Manager Failover Script
+    Automatically manages traffic distribution across regions
+    """
+
+    import boto3
+    import requests
+    import json
+    import time
+    import os
+    from datetime import datetime
+
+    class GlobalTrafficManager:
+        def __init__(self):
+            self.route53 = boto3.client('route53')
+            self.cloudwatch = boto3.client('cloudwatch')
+            self.sns = boto3.client('sns')
+            self.config = self.load_config()
+
+        def load_config(self):
+            with open('/etc/hermes/config.json', 'r') as f:
+                return json.load(f)
+
+        def check_region_health(self, region):
+            """Check health of a specific region"""
+            try:
+                response = requests.get(
+                    f"https://{region['health_check']}/api/orchestrator/status",
+                    timeout=10
+                )
+                return response.status_code == 200
+            except Exception as e:
+                print(f"Health check failed for {region['name']}: {e}")
+                return False
+
+        def get_region_metrics(self, region):
+            """Get metrics for a specific region"""
+            try:
+                # Get error rate metric
+                error_rate = self.cloudwatch.get_metric_statistics(
+                    Namespace='HermesAI',
+                    MetricName='ErrorRate',
+                    Dimensions=[
+                        {
+                            'Name': 'Region',
+                            'Value': region['name']
+                        }
+                    ],
+                    StartTime=datetime.utcnow().replace(minute=0, second=0, microsecond=0),
+                    EndTime=datetime.utcnow(),
+                    Period=300,
+                    Statistics=['Average']
+                )
+
+                # Get latency metric
+                latency = self.cloudwatch.get_metric_statistics(
+                    Namespace='HermesAI',
+                    MetricName='ResponseTime',
+                    Dimensions=[
+                        {
+                            'Name': 'Region',
+                            'Value': region['name']
+                        }
+                    ],
+                    StartTime=datetime.utcnow().replace(minute=0, second=0, microsecond=0),
+                    EndTime=datetime.utcnow(),
+                    Period=300,
+                    Statistics=['Average']
+                )
+
+                return {
+                    'error_rate': error_rate['Datapoints'][-1]['Average'] if error_rate['Datapoints'] else 0,
+                    'latency': latency['Datapoints'][-1]['Average'] if latency['Datapoints'] else 0
+                }
+            except Exception as e:
+                print(f"Failed to get metrics for {region['name']}: {e}")
+                return {'error_rate': 0, 'latency': 0}
+
+        def should_failover(self, primary_region, secondary_region):
+            """Determine if failover should be triggered"""
+            # Check primary health
+            primary_healthy = self.check_region_health(primary_region)
+            if not primary_healthy:
+                print("Primary region is unhealthy, initiating failover")
+                return True
+
+            # Check primary metrics
+            metrics = self.get_region_metrics(primary_region)
+
+            # Check error rate threshold
+            if metrics['error_rate'] > 0.05:  # 5% error rate
+                print(f"High error rate detected: {metrics['error_rate']:.2%}")
+                return True
+
+            # Check latency threshold
+            if metrics['latency'] > 2000:  # 2000ms latency
+                print(f"High latency detected: {metrics['latency']:.0f}ms")
+                return True
+
+            return False
+
+        def initiate_failover(self, from_region, to_region):
+            """Initiate traffic failover from one region to another"""
+            try:
+                hosted_zone_id = os.environ['HOSTED_ZONE_ID']
+
+                # Update DNS records
+                self.route53.change_resource_record_sets(
+                    HostedZoneId=hosted_zone_id,
+                    ChangeBatch={
+                        'Comment': f'Failover from {from_region["name"]} to {to_region["name"]}',
+                        'Changes': [
+                            {
+                                'Action': 'UPSERT',
+                                'ResourceRecordSet': {
+                                    'Name': 'hermes.hermes-ai.com.',
+                                    'Type': 'A',
+                                    'SetIdentifier': to_region['name'],
+                                    'Weight': 100,
+                                    'ResourceRecords': [
+                                        {
+                                            'Value': self.get_region_ip(to_region)
+                                        }
+                                    ],
+                                    'HealthCheckId': self.get_health_check_id(to_region)
+                                }
+                            },
+                            {
+                                'Action': 'UPSERT',
+                                'ResourceRecordSet': {
+                                    'Name': 'hermes.hermes-ai.com.',
+                                    'Type': 'A',
+                                    'SetIdentifier': from_region['name'],
+                                    'Weight': 0,
+                                    'ResourceRecords': [
+                                        {
+                                            'Value': self.get_region_ip(from_region)
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                )
+
+                # Send notification
+                self.send_notification(
+                    f"🚨 Traffic Failover Initiated",
+                    f"Traffic is being shifted from {from_region['name']} to {to_region['name']}"
+                )
+
+                print(f"Failover initiated from {from_region['name']} to {to_region['name']}")
+                return True
+
+            except Exception as e:
+                print(f"Failover failed: {e}")
+                self.send_notification(
+                    f"❌ Failover Failed",
+                    f"Failed to initiate failover: {str(e)}"
+                )
+                return False
+
+        def get_region_ip(self, region):
+            """Get the IP address for a region"""
+            # This should be implemented based on your load balancer configuration
+            return os.environ.get(f"{region['name'].upper()}_IP", "127.0.0.1")
+
+        def get_health_check_id(self, region):
+            """Get the health check ID for a region"""
+            return os.environ.get(f"{region['name'].upper()}_HEALTH_CHECK_ID", "")
+
+        def send_notification(self, subject, message):
+            """Send notification about failover events"""
+            try:
+                # Send to SNS
+                self.sns.publish(
+                    TopicArn=os.environ['SNS_TOPIC_ARN'],
+                    Subject=subject,
+                    Message=message
+                )
+            except Exception as e:
+                print(f"Failed to send notification: {e}")
+
+        def run_health_checks(self):
+            """Run continuous health checks and manage traffic"""
+            regions = self.config['regions']
+            primary = regions[0]  # Assume first region is primary
+            secondary = regions[1]  # Assume second region is secondary
+
+            print("Running health checks...")
+
+            if self.should_failover(primary, secondary):
+                self.initiate_failover(primary, secondary)
+            else:
+                # Check if we should restore primary
+                if self.check_region_health(primary):
+                    self.restore_primary(primary, secondary)
+
+        def restore_primary(self, primary_region, secondary_region):
+            """Restore traffic to primary region"""
+            try:
+                # Gradually shift traffic back to primary
+                for weight in [25, 50, 75, 100]:
+                    print(f"Shifting {weight}% traffic back to primary...")
+                    # Update DNS weight
+                    time.sleep(60)  # Wait between shifts
+
+                print("Traffic restored to primary region")
+                self.send_notification(
+                    "✅ Traffic Restored",
+                    f"Traffic has been restored to {primary_region['name']}"
+                )
+            except Exception as e:
+                print(f"Failed to restore primary: {e}")
+
+    if __name__ == "__main__":
+        gtm = GlobalTrafficManager()
+        while True:
+            gtm.run_health_checks()
+            time.sleep(60)  # Check every minute
+  health-check.sh: |
+    #!/bin/bash
+    # Regional Health Check Script
+
+    set -euo pipefail
+
+    REGION=${1:-primary}
+    NAMESPACE=${2:-hermes}
+
+    echo "Health check for region: $REGION"
+
+    # Check pod status
+    POD_COUNT=$(kubectl get pods -n $NAMESPACE -l app=hermes-ai-assistant --no-headers | wc -l)
+    READY_PODS=$(kubectl get pods -n $NAMESPACE -l app=hermes-ai-assistant --no-headers | grep "Running" | wc -l)
+
+    echo "Pods: $READY_PODS/$POD_COUNT ready"
+
+    # Check API endpoint
+    if curl -f -s http://localhost:8080/api/orchestrator/status >/dev/null; then
+        echo "API health check: PASSED"
+        exit 0
+    else
+        echo "API health check: FAILED"
+        exit 1
+    fi
+  sync-config.sh: |
+    #!/bin/bash
+    # Configuration Synchronization Script
+
+    set -euo pipefail
+
+    SOURCE_REGION=${1:-primary}
+    DEST_REGIONS=${2:-secondary,dr}
+    NAMESPACE=${3:-hermes}
+
+    echo "Syncing configuration from $SOURCE_REGION to $DEST_REGIONS"
+
+    # Sync ConfigMaps
+    for configmap in hermes-config hermes-features; do
+        echo "Syncing ConfigMap: $configmap"
+        kubectl get configmap $configmap -n $NAMESPACE -o yaml | \
+        kubectl apply -n $NAMESPACE -f -
+    done
+
+    # Sync Secrets (excluding sensitive data)
+    for secret in hermes-secrets; do
+        echo "Syncing Secret: $secret"
+        kubectl get secret $secret -n $NAMESPACE -o yaml | \
+        sed 's/data:/data: # SENSITIVE_DATA_REDACTED/' | \
+        kubectl apply -n $NAMESPACE -f -
+    done
+
+    echo "Configuration sync completed"

@@ -1,0 +1,373 @@
+# Rate Limiting Configuration for Hermes AI Assistant
+# This file defines rate limiting policies and quotas for different client tiers
+
+# Global rate limiting settings
+global:
+  redis_url: "${REDIS_URL:-redis://localhost:6379}"
+  default_tier: "anonymous"
+  block_duration_seconds: 300
+  max_violations_per_hour: 10
+
+# Client tier definitions
+tiers:
+  anonymous:
+    description: "Unauthenticated users"
+    rate_limits:
+      - type: "requests_per_minute"
+        limit: 10
+        burst_multiplier: 1.5
+        enabled: true
+      - type: "requests_per_hour"
+        limit: 100
+        burst_multiplier: 2.0
+        enabled: true
+      - type: "concurrent_requests"
+        limit: 3
+        enabled: true
+    quotas:
+      - type: "daily_tokens"
+        limit: 10000
+        hard_limit: true
+      - type: "daily_requests"
+        limit: 200
+        hard_limit: true
+    features:
+      - basic_chat
+      - limited_model_access
+    restrictions:
+      - no_premium_models
+      - no_file_uploads
+      - rate_limit_headers: true
+
+  basic:
+    description: "Basic tier users"
+    rate_limits:
+      - type: "requests_per_minute"
+        limit: 60
+        burst_multiplier: 2.0
+        enabled: true
+      - type: "requests_per_hour"
+        limit: 1000
+        burst_multiplier: 2.5
+        enabled: true
+      - type: "tokens_per_minute"
+        limit: 10000
+        burst_multiplier: 2.0
+        enabled: true
+      - type: "concurrent_requests"
+        limit: 10
+        enabled: true
+    quotas:
+      - type: "monthly_tokens"
+        limit: 1000000
+        hard_limit: true
+      - type: "daily_tokens"
+        limit: 50000
+        hard_limit: false
+      - type: "monthly_requests"
+        limit: 10000
+        hard_limit: true
+    features:
+      - advanced_chat
+      - basic_model_access
+      - file_uploads
+      - conversation_history
+    restrictions:
+      - no_enterprise_models
+      - limited_file_size: "10MB"
+
+  premium:
+    description: "Premium tier users"
+    rate_limits:
+      - type: "requests_per_minute"
+        limit: 300
+        burst_multiplier: 3.0
+        enabled: true
+      - type: "requests_per_hour"
+        limit: 10000
+        burst_multiplier: 3.0
+        enabled: true
+      - type: "tokens_per_minute"
+        limit: 100000
+        burst_multiplier: 3.0
+        enabled: true
+      - type: "concurrent_requests"
+        limit: 50
+        enabled: true
+    quotas:
+      - type: "monthly_tokens"
+        limit: 10000000
+        hard_limit: false
+        auto_scale: true
+      - type: "daily_tokens"
+        limit: 500000
+        hard_limit: false
+      - type: "monthly_requests"
+        limit: 100000
+        hard_limit: false
+    features:
+      - premium_chat
+      - advanced_model_access
+      - large_file_uploads
+      - priority_processing
+      - custom_instructions
+      - api_access
+    restrictions:
+      - no_specialized_models
+      - file_size_limit: "100MB"
+
+  enterprise:
+    description: "Enterprise tier users"
+    rate_limits:
+      - type: "requests_per_minute"
+        limit: 1000
+        burst_multiplier: 5.0
+        enabled: true
+      - type: "requests_per_hour"
+        limit: 100000
+        burst_multiplier: 5.0
+        enabled: true
+      - type: "tokens_per_minute"
+        limit: 1000000
+        burst_multiplier: 5.0
+        enabled: true
+      - type: "concurrent_requests"
+        limit: 200
+        enabled: true
+    quotas:
+      - type: "monthly_tokens"
+        limit: 100000000
+        hard_limit: false
+        auto_scale: true
+      - type: "daily_tokens"
+        limit: 5000000
+        hard_limit: false
+      - type: "monthly_requests"
+        limit: 1000000
+        hard_limit: false
+    features:
+      - enterprise_chat
+      - all_model_access
+      - unlimited_file_uploads
+      - highest_priority
+      - custom_models
+      - advanced_api
+      - dedicated_support
+      - custom_integrations
+    restrictions: []
+
+# Special rate limiting for specific endpoints
+endpoint_limits:
+  health_check:
+    requests_per_minute: 1000
+    burst_multiplier: 10.0
+    no_auth_required: true
+
+  status:
+    requests_per_minute: 100
+    burst_multiplier: 5.0
+    no_auth_required: true
+
+  authentication:
+    requests_per_minute: 20
+    burst_multiplier: 2.0
+    strict_mode: true
+
+  file_upload:
+    requests_per_minute: 30
+    burst_multiplier: 2.0
+    size_limit_mb: 100
+    concurrent_uploads: 5
+
+  model_inference:
+    requests_per_minute: 60
+    burst_multiplier: 3.0
+    token_limits:
+      max_tokens_per_request: 4000
+      max_tokens_per_minute: 10000
+
+  bulk_operations:
+    requests_per_minute: 10
+    burst_multiplier: 1.5
+    size_limit_mb: 500
+    timeout_seconds: 300
+
+# Rate limiting strategies
+strategies:
+  sliding_window:
+    enabled: true
+    window_size_seconds: 60
+    precision_ms: 100
+
+  token_bucket:
+    enabled: true
+    default_capacity: 1000
+    refill_rate_per_second: 10
+
+  fixed_window:
+    enabled: false
+    window_size_seconds: 60
+
+  adaptive:
+    enabled: true
+    learning_rate: 0.1
+    adjustment_threshold: 0.8
+    max_adjustment_factor: 2.0
+
+# Quota management settings
+quota_management:
+  auto_adjustment:
+    enabled: true
+    evaluation_interval_hours: 24
+    usage_threshold_percent: 80
+    adjustment_factor: 1.2
+    max_increase_percent: 50
+
+  fair_share:
+    enabled: true
+    redistribution_threshold: 0.3
+    minimum_quota_percent: 10
+
+  warnings:
+    enabled: true
+    warning_thresholds:
+      - percent: 80
+        type: "warning"
+      - percent: 95
+        type: "critical"
+      - percent: 100
+        type: "exhausted"
+
+# Burst handling
+burst_handling:
+  enabled: true
+  default_burst_multiplier: 2.0
+  burst_duration_seconds: 60
+  burst_cooldown_seconds: 300
+  max_burst_per_hour: 5
+
+# Penalty and abuse prevention
+penalty_system:
+  enabled: true
+  violation_threshold: 5
+  penalty_duration_minutes: 30
+  exponential_backoff: true
+  max_penalty_duration_hours: 24
+
+  penalties:
+    minor_violation:
+      block_duration_minutes: 5
+      rate_limit_reduction: 0.5
+
+    major_violation:
+      block_duration_minutes: 30
+      rate_limit_reduction: 0.25
+
+    severe_violation:
+      block_duration_minutes: 120
+      rate_limit_reduction: 0.1
+
+    abuse:
+      block_duration_hours: 24
+      rate_limit_reduction: 0.0
+
+# Monitoring and alerts
+monitoring:
+  metrics_enabled: true
+  alerting_enabled: true
+  log_level: "INFO"
+
+  alerts:
+    high_usage:
+      threshold_percent: 90
+      window_minutes: 60
+      channels: ["email", "slack"]
+
+    quota_exhaustion:
+      threshold_percent: 100
+      immediate: true
+      channels: ["email", "slack", "pagerduty"]
+
+    abuse_detected:
+      immediate: true
+      channels: ["email", "slack", "security"]
+
+    system_overload:
+      threshold_percent: 95
+      window_minutes: 5
+      channels: ["slack", "pagerduty"]
+
+# API rate limiting headers
+headers:
+  enabled: true
+  include_remaining: true
+  include_reset_time: true
+  include_retry_after: true
+  include_quota_info: true
+
+  header_names:
+    rate_limit_limit: "X-RateLimit-Limit"
+    rate_limit_remaining: "X-RateLimit-Remaining"
+    rate_limit_reset: "X-RateLimit-Reset"
+    rate_limit_retry_after: "Retry-After"
+    quota_remaining: "X-Quota-Remaining"
+    quota_reset: "X-Quota-Reset"
+
+# Client identification
+client_identification:
+  methods:
+    - header: "X-Client-ID"
+    - api_key: "X-API-Key"
+    - jwt: "Authorization"
+    - ip_address: true
+
+  fallback_to_ip: true
+  session_tracking: true
+  cookie_name: "hermes_session"
+
+# Development and testing settings
+development:
+  mock_redis: false
+  log_all_requests: false
+  disable_penalties: false
+  test_mode: false
+
+  test_clients:
+    - client_id: "test-client-1"
+      tier: "premium"
+      api_key: "test-key-123"
+
+# Performance optimization
+performance:
+  cache_size: 10000
+  cleanup_interval_seconds: 300
+  batch_size: 100
+  async_processing: true
+  connection_pool_size: 10
+
+  redis:
+    connection_timeout_seconds: 5
+    read_timeout_seconds: 3
+    write_timeout_seconds: 3
+    max_connections: 20
+
+# Security settings
+security:
+  enforce_client_authentication: true
+  validate_api_keys: true
+  ip_whitelist_enabled: false
+  ip_blacklist_enabled: true
+
+  api_key_validation:
+    length_min: 32
+    length_max: 128
+    allowed_characters: "a-zA-Z0-9-_"
+
+  rate_limit_bypass:
+    admin_keys:
+      - "admin-bypass-key-12345"
+      - "admin-bypass-key-67890"
+    internal_networks:
+      - "10.0.0.0/8"
+      - "172.16.0.0/12"
+      - "192.168.0.0/16"

@@ -1,0 +1,619 @@
+# AWS CloudWatch Integration Configuration for Hermes AI Assistant
+
+# CloudWatch Agent DaemonSet
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cloudwatch-agent
+  namespace: hermes-monitoring
+  labels:
+    app: cloudwatch-agent
+    component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: cloudwatch-agent
+  template:
+    metadata:
+      labels:
+        app: cloudwatch-agent
+        component: monitoring
+      annotations:
+        # CloudWatch annotations
+        amazonaws.com/cloudwatch-agent-enabled: "true"
+    spec:
+      serviceAccountName: cloudwatch-agent
+      terminationGracePeriodSeconds: 60
+      containers:
+      - name: cloudwatch-agent
+        image: amazon/cloudwatch-agent:1.247349.0b250680
+        imagePullPolicy: Always
+        resources:
+          limits:
+            memory: 200Mi
+            cpu: 200m
+          requests:
+            memory: 100Mi
+            cpu: 100m
+        env:
+        - name: AWS_REGION
+          value: "us-west-2"
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        - name: HOST_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: K8S_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        # Add CloudWatch configuration
+        - name: CW_CONFIG_CONTENT
+          valueFrom:
+            configMapKeyRef:
+              name: cloudwatch-agent-config
+              key: cwagentconfig.json
+        volumeMounts:
+        - name: cwagentconfig
+          mountPath: /opt/aws/amazon-cloudwatch-agent/etc/
+          readOnly: true
+        - name: rootfs
+          mountPath: /rootfs
+          readOnly: true
+        - name: datapath
+          mountPath: /var/log
+          readOnly: true
+        - name: varlibdockercontainers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
+        - name: syspath
+          mountPath: /sys
+          readOnly: true
+        - name: dockersock
+          mountPath: /var/run/docker.sock
+          readOnly: true
+      volumes:
+      - name: cwagentconfig
+        configMap:
+          name: cloudwatch-agent-config
+      - name: rootfs
+        hostPath:
+          path: /
+      - name: datapath
+        hostPath:
+          path: /var/log
+      - name: varlibdockercontainers
+        hostPath:
+          path: /var/lib/docker/containers
+      - name: syspath
+        hostPath:
+          path: /sys
+      - name: dockersock
+        hostPath:
+          path: /var/run/docker.sock
+---
+# CloudWatch Fluent Bit DaemonSet for logs
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluent-bit-cloudwatch
+  namespace: hermes-monitoring
+  labels:
+    k8s-app: fluent-bit-cloudwatch
+    version: v1
+    kubernetes.io/cluster-service: "true"
+spec:
+  selector:
+    matchLabels:
+      k8s-app: fluent-bit-cloudwatch
+  template:
+    metadata:
+      labels:
+        k8s-app: fluent-bit-cloudwatch
+        version: v1
+        kubernetes.io/cluster-service: "true"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "2020"
+        prometheus.io/path: "/api/v1/metrics/prometheus"
+    spec:
+      serviceAccountName: fluent-bit
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: fluent-bit-cloudwatch
+        image: fluent/fluent-bit:2.1.8
+        imagePullPolicy: Always
+        env:
+        - name: AWS_REGION
+          value: "us-west-2"
+        - name: CLUSTER_NAME
+          value: "hermes-production"
+        - name: HOST_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        resources:
+          limits:
+            memory: 200Mi
+            cpu: 200m
+          requests:
+            memory: 100Mi
+            cpu: 100m
+        volumeMounts:
+        - name: varlog
+          mountPath: /var/log
+          readOnly: true
+        - name: varlibdockercontainers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
+        - name: fluent-bit-config
+          mountPath: /fluent-bit/etc/
+        - name: mnt
+          mountPath: /mnt
+          readOnly: true
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: varlog
+        hostPath:
+          path: /var/log
+      - name: varlibdockercontainers
+        hostPath:
+          path: /var/lib/docker/containers
+      - name: fluent-bit-config
+        configMap:
+          name: fluent-bit-config
+      - name: mnt
+        hostPath:
+          path: /mnt
+---
+# Prometheus Exporter for CloudWatch
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-cloudwatch-exporter
+  namespace: hermes-monitoring
+  labels:
+    app: prometheus-cloudwatch-exporter
+    component: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus-cloudwatch-exporter
+  template:
+    metadata:
+      labels:
+        app: prometheus-cloudwatch-exporter
+        component: monitoring
+    spec:
+      serviceAccountName: prometheus-cloudwatch-exporter
+      containers:
+      - name: prometheus-cloudwatch-exporter
+        image: prom/cloudwatch-exporter:latest
+        env:
+        - name: AWS_REGION
+          value: "us-west-2"
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: aws-credentials
+              key: access-key-id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aws-credentials
+              key: secret-access-key
+        - name: AWS_ROLE_ARN
+          valueFrom:
+            secretKeyRef:
+              name: aws-credentials
+              key: role-arn
+        - name: DISCOVERY_JOB_TAG
+          value: "hermes"
+        - name: DISCOVERY_EXPORTED_TAG
+          value: "ClusterName"
+        - name: DISCOVERY_CACHE_DURATION
+          value: "10m"
+        args:
+        - "/bin/cloudwatch_exporter"
+        - "--config.file=/etc/cloudwatch_exporter.yml"
+        ports:
+        - containerPort: 9106
+          name: metrics
+          protocol: TCP
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/cloudwatch_exporter.yml
+          subPath: cloudwatch_exporter.yml
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      volumes:
+      - name: config-volume
+        configMap:
+          name: prometheus-cloudwatch-config
+---
+# Service for Prometheus CloudWatch Exporter
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-cloudwatch-exporter
+  namespace: hermes-monitoring
+  labels:
+    app: prometheus-cloudwatch-exporter
+    component: monitoring
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9106"
+spec:
+  selector:
+    app: prometheus-cloudwatch-exporter
+  ports:
+  - name: metrics
+    port: 9106
+    targetPort: 9106
+    protocol: TCP
+---
+# Service Accounts
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cloudwatch-agent
+  namespace: hermes-monitoring
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fluent-bit
+  namespace: hermes-monitoring
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus-cloudwatch-exporter
+  namespace: hermes-monitoring
+---
+# RBAC for CloudWatch Agent
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cloudwatch-agent-role
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - pods
+  - services
+  - endpoints
+  verbs: ["list", "watch"]
+- apiGroups: ["apps"]
+  resources:
+  - replicasets
+  - deployments
+  - daemonsets
+  verbs: ["list", "watch"]
+- apiGroups: ["batch"]
+  resources:
+  - jobs
+  - cronjobs
+  verbs: ["list", "watch"]
+- apiGroups: ["extensions"]
+  resources:
+  - replicasets
+  - deployments
+  - daemonsets
+  verbs: ["list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cloudwatch-agent-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cloudwatch-agent-role
+subjects:
+- kind: ServiceAccount
+  name: cloudwatch-agent
+  namespace: hermes-monitoring
+---
+# RBAC for Fluent Bit
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fluent-bit-role
+rules:
+- apiGroups: [""]
+  resources:
+  - namespaces
+  - pods
+  - pods/logs
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: fluent-bit-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: fluent-bit-role
+subjects:
+- kind: ServiceAccount
+  name: fluent-bit
+  namespace: hermes-monitoring
+---
+# RBAC for Prometheus CloudWatch Exporter
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus-cloudwatch-exporter-role
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus-cloudwatch-exporter-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus-cloudwatch-exporter-role
+subjects:
+- kind: ServiceAccount
+  name: prometheus-cloudwatch-exporter
+  namespace: hermes-monitoring
+---
+# ConfigMaps
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudwatch-agent-config
+  namespace: hermes-monitoring
+data:
+  cwagentconfig.json: |
+    {
+      "agent": {
+        "metrics_collection_interval": 60,
+        "run_as_user": "cwagent"
+      },
+      "logs": {
+        "logs_collected": {
+          "files": {
+            "collect_list": [
+              {
+                "file_path": "/var/log/containers/hermes-*.log",
+                "log_group_name": "/aws/eks/hermes-ai-assistant/hermes",
+                "log_stream_name": "{instance_id}/{kubernetes_pod_name}/{kubernetes_container_name}",
+                "timezone": "UTC",
+                "multi_line_start_pattern": "{timestamp_format}",
+                "timestamp_format": "%Y-%m-%dT%H:%M:%S.%f"
+              },
+              {
+                "file_path": "/var/log/containers/*hermes*.log",
+                "log_group_name": "/aws/eks/hermes-ai-assistant/nginx",
+                "log_stream_name": "{instance_id}/{kubernetes_pod_name}/{kubernetes_container_name}",
+                "timezone": "UTC"
+              }
+            ]
+          }
+        }
+      },
+      "metrics": {
+        "namespace": "HermesAI",
+        "metrics_collected": {
+          "prometheus": {
+            "prometheus_config_path": "/etc/prometheus_exporter/prometheus.yml",
+            "emf_processor": {
+              "metric_declaration": [
+                {
+                  "source_labels": ["job"],
+                  "label_matcher": "^hermes",
+                  "metric_selectors": [
+                    "^hermes_(.+)$",
+                    "^flask_(.+)$"
+                  ],
+                  "dimension_references": [
+                    "backend_name",
+                    "method",
+                    "status_code"
+                  ]
+                }
+              ]
+            }
+          },
+          "kubernetes": {
+            "metrics_collection_interval": 60,
+            "cluster_name": "hermes-production",
+            "metrics": [
+              {
+                "name": "pod_cpu_utilization",
+                "resource": "pod",
+                "dimension": {
+                  "PodName": "{{ $.PodName }}"
+                }
+              },
+              {
+                "name": "pod_memory_utilization",
+                "resource": "pod",
+                "dimension": {
+                  "PodName": "{{ $.PodName }}"
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+  namespace: hermes-monitoring
+  labels:
+    k8s-app: fluent-bit
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         1
+        Log_Level     info
+        Daemon        off
+        Parsers_File  parsers.conf
+        HTTP_Server   On
+        HTTP_Listen   0.0.0.0
+        HTTP_Port     2020
+        Health_Check  On
+
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/*hermes*.log
+        Exclude_Path      /var/log/containers/*cloudwatch*.log
+        Parser            docker
+        Tag               hermes.*
+        Refresh_Interval  5
+        Mem_Buf_Limit     50MB
+        Skip_Long_Lines   On
+        DB                /var/log/flb_kubernetes.db
+        Rotate_Wait       30
+
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/*nginx*.log
+        Parser            docker
+        Tag               nginx.*
+        Refresh_Interval  5
+        Mem_Buf_Limit     50MB
+        Skip_Long_Lines   On
+        DB                /var/log/flb_nginx.db
+        Rotate_Wait       30
+
+    [FILTER]
+        Name                kubernetes
+        Match               hermes.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
+        Kube_Tag_Prefix     hermes.var.log.containers.
+        Merge_Log           On
+        Merge_Log_Key       log_processed
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude On
+        Labels              On
+        Annotations         On
+
+    [FILTER]
+        Name                kubernetes
+        Match               nginx.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
+        Kube_Tag_Prefix     nginx.var.log.containers.
+        Merge_Log           On
+        Merge_Log_Key       log_processed
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude On
+        Labels              On
+        Annotations         On
+
+    [OUTPUT]
+        Name                cloudwatch_logs
+        Match               *
+        region              us-west-2
+        log_group_name      /aws/eks/hermes-ai-assistant
+        log_stream_prefix    from-fluent-bit-
+        auto_create_group   true
+        log_key             log
+        log_retention_days  30
+        generate_log_stream_name true
+
+  parsers.conf: |
+    [PARSER]
+        Name        docker
+        Format      json
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L
+        Time_Keep   On
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-cloudwatch-config
+  namespace: hermes-monitoring
+data:
+  cloudwatch_exporter.yml: |
+    region: us-west-2
+    period: 60s
+    metrics:
+      - aws_namespace: "AWS/ApplicationELB"
+        aws_metric_name: RequestCount
+        aws_dimensions:
+          - name: LoadBalancer
+            value: "app/hermes-ai-assistant"
+      - aws_namespace: "AWS/ApplicationELB"
+        aws_metric_name: TargetResponseTime
+        aws_dimensions:
+          - name: LoadBalancer
+            value: "app/hermes-ai-assistant"
+      - aws_namespace: "AWS/ApplicationELB"
+        aws_metric_name: HTTPCode_Target_5XX_Count
+        aws_dimensions:
+          - name: LoadBalancer
+            value: "app/hermes-ai-assistant"
+      - aws_namespace: "AWS/ApplicationELB"
+        aws_metric_name: HTTPCode_Target_4XX_Count
+        aws_dimensions:
+          - name: LoadBalancer
+            value: "app/hermes-ai-assistant"
+      - aws_namespace: "AWS/EKS"
+        aws_metric_name: cluster_cpu_utilization
+        aws_dimensions:
+          - name: ClusterName
+            value: "hermes-production"
+      - aws_namespace: "AWS/EKS"
+        aws_metric_name: cluster_memory_utilization
+        aws_dimensions:
+          - name: ClusterName
+            value: "hermes-production"
+      - aws_namespace: "AWS/RDS"
+        aws_metric_name: CPUUtilization
+        aws_dimensions:
+          - name: DBInstanceIdentifier
+            value: "hermes-postgres"
+      - aws_namespace: "AWS/ElastiCache"
+        aws_metric_name: CPUUtilization
+        aws_dimensions:
+          - name: CacheClusterId
+            value: "hermes-redis"
+      - aws_namespace: "AWS/ElastiCache"
+        aws_metric_name: DatabaseMemoryUsagePercentage
+        aws_dimensions:
+          - name: CacheClusterId
+            value: "hermes-redis"
+---
+# AWS Secrets (create manually)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aws-credentials
+  namespace: hermes-monitoring
+type: Opaque
+data:
+  # Base64 encoded values
+  access-key-id: <BASE64_ENCODED_AWS_ACCESS_KEY_ID>
+  secret-access-key: <BASE64_ENCODED_AWS_SECRET_ACCESS_KEY>
+  role-arn: <BASE64_ENCODED_AWS_IAM_ROLE_ARN>

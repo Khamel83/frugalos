@@ -1,0 +1,173 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hermes-ai-assistant.fullname" . }}
+  labels:
+    {{- include "hermes-ai-assistant.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  {{- if .Values.updateStrategy }}
+  strategy:
+    {{- toYaml .Values.updateStrategy | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "hermes-ai-assistant.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.pod.annotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "hermes-ai-assistant.selectorLabels" . | nindent 8 }}
+        {{- with .Values.pod.labels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "hermes-ai-assistant.serviceAccountName" . }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName | quote }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.pod.securityContext | nindent 8 }}
+      {{- if .Values.initContainers }}
+      initContainers:
+        {{- toYaml .Values.initContainers | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.pod.containerSecurityContext | nindent 12 }}
+          image: {{ include "hermes-ai-assistant.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          {{- if .Values.startupProbe }}
+          startupProbe:
+            {{- toYaml .Values.startupProbe | nindent 12 }}
+          {{- end }}
+          env:
+            - name: HERMES_ENV
+              value: {{ .Values.config.environment | quote }}
+            - name: DATA_DIR
+              value: "/opt/hermes/data"
+            - name: CACHE_DIR
+              value: "/opt/hermes/cache"
+            - name: LOG_DIR
+              value: "/opt/hermes/logs"
+            - name: BACKUP_DIR
+              value: "/opt/hermes/backups"
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          envFrom:
+            {{- if include "hermes-ai-assistant.createSecret" . }}
+            - secretRef:
+                name: {{ include "hermes-ai-assistant.fullname" . }}
+            {{- end }}
+            {{- with .Values.extraEnvFrom }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /opt/hermes/config
+              readOnly: true
+            {{- if .Values.persistence.data.enabled }}
+            - name: data
+              mountPath: /opt/hermes/data
+            {{- end }}
+            {{- if .Values.persistence.cache.enabled }}
+            - name: cache
+              mountPath: /opt/hermes/cache
+            {{- end }}
+            {{- if .Values.persistence.logs.enabled }}
+            - name: logs
+              mountPath: /opt/hermes/logs
+            {{- end }}
+            - name: tmp
+              mountPath: /tmp
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- with .Values.extraContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "hermes-ai-assistant.fullname" . }}
+        {{- if .Values.persistence.data.enabled }}
+        - name: data
+          {{- if .Values.persistence.data.existingClaim }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.data.existingClaim }}
+          {{- else }}
+          persistentVolumeClaim:
+            claimName: {{ include "hermes-ai-assistant.fullname" . }}-data
+          {{- end }}
+        {{- end }}
+        {{- if .Values.persistence.cache.enabled }}
+        - name: cache
+          {{- if .Values.persistence.cache.existingClaim }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.cache.existingClaim }}
+          {{- else }}
+          persistentVolumeClaim:
+            claimName: {{ include "hermes-ai-assistant.fullname" . }}-cache
+          {{- end }}
+        {{- end }}
+        {{- if .Values.persistence.logs.enabled }}
+        - name: logs
+          {{- if .Values.persistence.logs.existingClaim }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.logs.existingClaim }}
+          {{- else }}
+          persistentVolumeClaim:
+            claimName: {{ include "hermes-ai-assistant.fullname" . }}-logs
+          {{- end }}
+        {{- end }}
+        - name: tmp
+          emptyDir: {}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.runtimeClassName }}
+      runtimeClassName: {{ .Values.runtimeClassName | quote }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

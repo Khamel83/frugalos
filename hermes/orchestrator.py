@@ -11,7 +11,7 @@ from datetime import datetime
 from .config import Config
 from .database import Database
 from .logger import get_logger, setup_logger
-from .queue import JobQueue
+from .job_queue import JobQueue
 
 # Backend Management
 from .backends.health_monitor import BackendHealthMonitor

@@ -1,0 +1,518 @@
+# Security Configuration for Hermes AI Assistant
+# This file defines security policies, authentication settings, and compliance requirements
+
+# Global security settings
+global:
+  security_level: "high"  # low, medium, high, maximum
+  session_timeout_minutes: 60
+  max_login_attempts: 5
+  lockout_duration_minutes: 15
+  password_policy:
+    min_length: 12
+    require_uppercase: true
+    require_lowercase: true
+    require_numbers: true
+    require_special_chars: true
+    prevent_reuse: 5
+    max_age_days: 90
+
+# Authentication settings
+authentication:
+  methods:
+    - type: "password"
+      enabled: true
+      mfa_required: false
+    - type: "api_key"
+      enabled: true
+      rate_limit: "high"
+    - type: "jwt"
+      enabled: true
+      expiration_hours: 24
+      refresh_enabled: true
+    - type: "oauth2"
+      enabled: true
+      providers:
+        - name: "google"
+          client_id: "${GOOGLE_CLIENT_ID}"
+          client_secret: "${GOOGLE_CLIENT_SECRET}"
+        - name: "microsoft"
+          client_id: "${MICROSOFT_CLIENT_ID}"
+          client_secret: "${MICROSOFT_CLIENT_SECRET}"
+    - type: "saml"
+      enabled: false
+      idp_url: "${SAML_IDP_URL}"
+    - type: "ldap"
+      enabled: false
+      server: "${LDAP_SERVER}"
+      base_dn: "${LDAP_BASE_DN}"
+
+  # Multi-factor authentication
+  mfa:
+    enabled: true
+    required_for_roles:
+      - "admin"
+      - "enterprise_admin"
+    methods:
+      - type: "totp"
+        enabled: true
+        issuer: "Hermes AI Assistant"
+      - type: "sms"
+        enabled: false
+        provider: "${SMS_PROVIDER}"
+      - type: "email"
+        enabled: true
+        template: "mfa_code"
+
+  # API key settings
+  api_keys:
+    default_expiry_days: 365
+    max_keys_per_user: 10
+    rate_limit_tiers:
+      basic: "basic"
+      premium: "premium"
+      enterprise: "enterprise"
+    allowed_scopes:
+      - "read"
+      - "write"
+      - "admin"
+      - "billing"
+
+# Authorization settings
+authorization:
+  # Role-based access control
+  roles:
+    anonymous:
+      permissions:
+        - "read_public"
+      rate_limits: "anonymous"
+
+    basic_user:
+      permissions:
+        - "read_own"
+        - "write_own"
+        - "read_public"
+      rate_limits: "basic"
+
+    premium_user:
+      permissions:
+        - "read_own"
+        - "write_own"
+        - "read_public"
+        - "advanced_features"
+        - "api_access"
+      rate_limits: "premium"
+
+    enterprise_admin:
+      permissions:
+        - "read_all"
+        - "write_all"
+        - "manage_users"
+        - "manage_quotas"
+        - "view_analytics"
+        - "system_config"
+      rate_limits: "enterprise"
+
+    admin:
+      permissions:
+        - "all"
+      rate_limits: "unlimited"
+
+    service_account:
+      permissions:
+        - "api_access"
+        - "system_integration"
+      rate_limits: "service"
+
+  # Permission definitions
+  permissions:
+    read_public:
+      description: "Read public resources"
+      resources: ["public/*"]
+
+    read_own:
+      description: "Read own resources"
+      resources: ["user/own/*"]
+
+    write_own:
+      description: "Write own resources"
+      resources: ["user/own/*"]
+
+    read_all:
+      description: "Read all resources"
+      resources: ["*"]
+
+    write_all:
+      description: "Write all resources"
+      resources: ["*"]
+
+    manage_users:
+      description: "Manage user accounts"
+      resources: ["users/*"]
+
+    manage_quotas:
+      description: "Manage quotas and limits"
+      resources: ["quotas/*"]
+
+    view_analytics:
+      description: "View analytics and reports"
+      resources: ["analytics/*"]
+
+    system_config:
+      description: "Modify system configuration"
+      resources: ["system/*"]
+
+    advanced_features:
+      description: "Access advanced features"
+      resources: ["advanced/*"]
+
+    api_access:
+      description: "Access API endpoints"
+      resources: ["api/*"]
+
+    system_integration:
+      description: "System integration access"
+      resources: ["integration/*"]
+
+# Encryption settings
+encryption:
+  # Default encryption algorithms
+  default_algorithm: "aes_256_gcm"
+  key_rotation_days: 90
+
+  # Data encryption
+  data_at_rest:
+    enabled: true
+    algorithm: "aes_256_gcm"
+    key_management: "aws_kms"  # local, aws_kms, azure_keyvault
+
+  data_in_transit:
+    enabled: true
+    tls_version: "1.3"
+    cipher_suites:
+      - "TLS_AES_256_GCM_SHA384"
+      - "TLS_CHACHA20_POLY1305_SHA256"
+      - "TLS_AES_128_GCM_SHA256"
+
+  # Field-level encryption
+  field_encryption:
+    enabled: true
+    sensitive_fields:
+      - "password"
+      - "api_key"
+      - "credit_card"
+      - "ssn"
+      - "email"
+      - "phone"
+    algorithm: "aes_256_gcm"
+
+  # Key management
+  key_management:
+    provider: "local"  # local, aws_kms, azure_keyvault, gcp_kms
+    master_key_rotation_days: 365
+    backup_enabled: true
+    backup_location: "s3://hermes-keys-backup"
+
+# Compliance settings
+compliance:
+  # Enabled frameworks
+  frameworks:
+    - name: "gdpr"
+      enabled: true
+      data_retention_days: 365
+      user_consent_required: true
+      right_to_deletion: true
+      data_portability: true
+
+    - name: "soc2"
+      enabled: true
+      audit_logging: true
+      access_controls: true
+      encryption_required: true
+
+    - name: "hipaa"
+      enabled: false
+      phi_encryption: true
+      audit_trail: true
+      business_associate_agreement: false
+
+    - name: "pci_dss"
+      enabled: false
+      card_data_encryption: true
+      tokenization: true
+      network_segmentation: true
+
+  # Data classification
+  data_classification:
+    public:
+      retention_days: -1  # Permanent
+      encryption_required: false
+      audit_access: false
+
+    internal:
+      retention_days: 2555  # 7 years
+      encryption_required: true
+      audit_access: true
+
+    confidential:
+      retention_days: 2555  # 7 years
+      encryption_required: true
+      audit_access: true
+      access_logging: true
+
+    restricted:
+      retention_days: 2555  # 7 years
+      encryption_required: true
+      audit_access: true
+      access_logging: true
+      approval_required: true
+
+  # Audit logging
+  audit_logging:
+    enabled: true
+    log_all_access: true
+    log_failed_attempts: true
+    log_admin_actions: true
+    log_data_changes: true
+    retention_days: 2555  # 7 years
+    storage_location: "s3://hermes-audit-logs"
+
+# Security headers
+security_headers:
+  strict_transport_security:
+    enabled: true
+    max_age: "31536000"
+    include_subdomains: true
+    preload: true
+
+  content_type_options:
+    enabled: true
+
+  frame_options:
+    enabled: true
+    value: "DENY"
+
+  xss_protection:
+    enabled: true
+    value: "1; mode=block"
+
+  referrer_policy:
+    enabled: true
+    value: "strict-origin-when-cross-origin"
+
+  content_security_policy:
+    enabled: true
+    policy: |
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval';
+      style-src 'self' 'unsafe-inline';
+      img-src 'self' data: https:;
+      font-src 'self' data:;
+      connect-src 'self' https:;
+      frame-ancestors 'none';
+
+# Network security
+network_security:
+  # IP whitelisting
+  ip_whitelist:
+    enabled: true
+    admin_access:
+      - "10.0.0.0/8"
+      - "172.16.0.0/12"
+      - "192.168.0.0/16"
+    api_access:
+      - "0.0.0.0/0"  # All IPs (configure based on needs)
+
+  # Rate limiting
+  rate_limiting:
+    enabled: true
+    default_limits:
+      anonymous:
+        requests_per_minute: 10
+        requests_per_hour: 100
+      basic:
+        requests_per_minute: 60
+        requests_per_hour: 1000
+      premium:
+        requests_per_minute: 300
+        requests_per_hour: 10000
+      enterprise:
+        requests_per_minute: 1000
+        requests_per_hour: 100000
+
+  # DDoS protection
+  ddos_protection:
+    enabled: true
+    threshold_requests_per_minute: 1000
+    ban_duration_minutes: 60
+    auto_ip_whitelist: true
+
+# Session management
+session_management:
+  # Session configuration
+  session_timeout_minutes: 60
+  absolute_timeout_hours: 24
+  concurrent_sessions: 3
+  secure_cookies: true
+  http_only_cookies: true
+  same_site_policy: "Strict"
+
+  # Session storage
+  storage_type: "redis"  # memory, redis, database
+  redis_url: "${REDIS_URL}"
+
+# Password policies
+password_policy:
+  # Complexity requirements
+  min_length: 12
+  max_length: 128
+  require_uppercase: true
+  require_lowercase: true
+  require_numbers: true
+  require_special_chars: true
+
+  # Common password restrictions
+  forbid_common_passwords: true
+  forbid_user_info: true  # Username, email, etc.
+  check_breached_passwords: true
+
+  # Age and history
+  max_age_days: 90
+  min_age_hours: 1
+  history_count: 5
+  expiration_warning_days: 7
+
+  # Account lockout
+  max_attempts: 5
+  lockout_duration_minutes: 15
+  reset_lockout_on_success: true
+
+# API security
+api_security:
+  # Authentication
+  require_auth: true
+  auth_header_name: "Authorization"
+  api_key_header: "X-API-Key"
+
+  # CORS
+  cors:
+    enabled: true
+    allowed_origins:
+      - "https://hermes-ai.com"
+      - "https://www.hermes-ai.com"
+      - "https://app.hermes-ai.com"
+    allowed_methods:
+      - "GET"
+      - "POST"
+      - "PUT"
+      - "DELETE"
+      - "OPTIONS"
+    allowed_headers:
+      - "Authorization"
+      - "Content-Type"
+      - "X-API-Key"
+      - "X-Request-ID"
+    allow_credentials: true
+    max_age: 86400
+
+  # API versioning
+  versioning:
+    enabled: true
+    header_name: "API-Version"
+    default_version: "v1"
+    supported_versions:
+      - "v1"
+      - "v2"
+
+  # Request validation
+  request_validation:
+    max_request_size_mb: 100
+    max_header_size_kb: 8
+    validate_content_type: true
+    sanitize_input: true
+
+# Monitoring and alerting
+monitoring:
+  # Security monitoring
+  security_events:
+    enabled: true
+    log_level: "INFO"
+    alert_on_failures: true
+    alert_on_suspicious_activity: true
+
+  # Anomaly detection
+  anomaly_detection:
+    enabled: true
+    baseline_days: 30
+    sensitivity: "medium"  # low, medium, high
+    alert_threshold: 2.0  # Standard deviations
+
+  # Metrics
+  metrics:
+    enabled: true
+    export_prometheus: true
+    include_user_metrics: false  # Privacy
+
+# Backup and recovery
+backup_security:
+  # Encryption
+  backup_encryption:
+    enabled: true
+    algorithm: "aes_256_gcm"
+    key_management: "separate"
+
+  # Access control
+  backup_access:
+    require_mfa: true
+    approved_users_only: true
+    audit_backup_access: true
+
+  # Retention
+  backup_retention:
+    daily_retention_days: 30
+    weekly_retention_weeks: 12
+    monthly_retention_months: 24
+    annual_retention_years: 7
+
+# Testing and validation
+security_testing:
+  # Penetration testing
+  pen_testing:
+    enabled: true
+    frequency: "quarterly"
+    external_provider: true
+    remediation_required: true
+
+  # Vulnerability scanning
+  vulnerability_scanning:
+    enabled: true
+    frequency: "weekly"
+    automatic_remediation: false
+    alert_on_critical: true
+
+  # Security code review
+  code_review:
+    required_for_production: true
+    automated_scanning: true
+    manual_review_threshold: "high"
+
+# Environment-specific settings
+environments:
+  development:
+    security_level: "medium"
+    debug_mode: true
+    ssl_verification: false
+    mock_authentication: true
+
+  staging:
+    security_level: "high"
+    debug_mode: false
+    ssl_verification: true
+    mock_authentication: false
+
+  production:
+    security_level: "maximum"
+    debug_mode: false
+    ssl_verification: true
+    mock_authentication: false
+    enhanced_monitoring: true
+    strict_compliance: true

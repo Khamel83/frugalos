@@ -1,0 +1,279 @@
+# Production Deployment Configuration for Hermes Autonomous AI Assistant
+# This configuration is optimized for production environments
+
+# === Core System Configuration ===
+hermes:
+  debug: false
+  log_level: INFO
+  secret_key: "${HERMES_SECRET_KEY}"  # Must be set in environment
+  max_file_size: 50MB
+  upload_folder: "/opt/hermes/uploads"
+
+# === Database Configuration ===
+database:
+  type: sqlite
+  path: "/opt/hermes/data/hermes.db"
+  backup_enabled: true
+  backup_retention_days: 30
+  connection_pool_size: 10
+  connection_timeout: 30
+
+# === Backend Management ===
+backends:
+  health_check:
+    enabled: true
+    interval: 30
+    timeout: 5
+    failure_threshold: 3
+
+  load_balancing:
+    strategy: FASTEST_RESPONSE
+    max_concurrent: 20
+    update_interval: 10
+
+  failover:
+    strategy: PROGRESSIVE
+    max_retries: 3
+    retry_delay: 1.0
+    circuit_breaker_threshold: 5
+    circuit_breaker_timeout: 60
+
+  cost_tracking:
+    daily_budget_cents: 500
+    monthly_budget_cents: 15000
+    enable_persistence: true
+
+# === Meta-Learning Configuration ===
+metalearning:
+  enabled: true
+
+  # Question Generator
+  question_generator:
+    max_questions: 5
+    confidence_threshold: 0.6
+
+  # Pattern Engine
+  pattern_engine:
+    learning_rate: 0.1
+    max_patterns: 1000
+    min_similarity: 0.7
+    cleanup_interval: 3600
+
+  # Context Optimizer
+  context_optimizer:
+    max_context_tokens: 8000
+    min_importance: 0.3
+    cleanup_interval: 300
+
+  # Adaptive Prioritizer
+  adaptive_prioritizer:
+    learning_rate: 0.2
+    question_effectiveness_days: 30
+
+  # Execution Strategy
+  execution_strategy:
+    default_strategy: BALANCED
+    enable_learning: true
+
+  # Metrics
+  metrics:
+    learning_window_days: 30
+    min_samples: 10
+
+# === Autonomous Operations Configuration ===
+autonomous:
+  # Scheduler
+  scheduler:
+    enabled: true
+    interval: 60
+    max_concurrent: 10
+    learning_mode: true
+
+  # Suggestion Engine
+  suggestions:
+    enabled: true
+    min_confidence: 0.6
+    max_active: 20
+
+  # Automation
+  automation:
+    enabled: true
+    max_concurrent: 10
+
+  # Learning-Based Optimizer
+  optimization:
+    enabled: true
+    learning_window_days: 30
+    min_samples: 10
+    confidence_threshold: 0.7
+
+# === Advanced Features Configuration ===
+# Cache System
+cache:
+  enabled: true
+
+  cache_manager:
+    max_memory_items: 5000
+    max_memory_size_mb: 500
+    max_disk_items: 50000
+    disk_cache_dir: "/opt/hermes/cache"
+    default_ttl_seconds: 7200  # 2 hours
+    enable_compression: true
+    enable_persistence: true
+    cleanup_interval_seconds: 600
+
+# Performance Monitoring
+performance:
+  profiling:
+    enabled: true
+    max_profiles: 5000
+    auto_profile: true
+    threshold_ms: 100
+    enable_persistence: true
+
+# Security
+security:
+  threat_detection:
+    enabled: true
+    ml_enabled: true
+    block_threshold: 0.8
+
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 300
+    burst_limit: 500
+
+# Analytics
+analytics:
+  insights:
+    enabled: true
+    confidence_threshold: 0.7
+    insight_retention_days: 30
+
+# === Autonomous Development Configuration ===
+autonomous_dev:
+  enabled: true
+
+  # Code Modifier
+  code_modifier:
+    enabled: true
+    auto_apply_safe: true
+    max_modifications_per_file: 10
+
+  # Autonomous Learner
+  learner:
+    enabled: true
+    learning_rate: 0.1
+    min_confidence: 0.6
+    max_patterns: 2000
+
+  # Self-Healing
+  self_healing:
+    enabled: true
+    max_concurrent_healings: 5
+    default_timeout: 120
+
+  # Auto Optimizer
+  optimizer:
+    enabled: true
+    interval: 1800  # 30 minutes
+    confidence_threshold: 0.8
+    auto_apply_safe: true
+
+# === Monitoring and Observability ===
+monitoring:
+  enabled: true
+
+  metrics:
+    collection_interval: 30
+    retention_days: 90
+
+  alerts:
+    enabled: true
+    email_smtp_host: "${SMTP_HOST}"
+    email_smtp_port: 587
+    email_smtp_user: "${SMTP_USER}"
+    email_smtp_password: "${SMTP_PASSWORD}"
+    email_from: "hermes@company.com"
+    email_to: ["admin@company.com"]
+
+# === Production Optimizations ===
+production:
+  # Resource Management
+  max_workers: 20
+  thread_pool_size: 50
+  connection_pool_size: 20
+
+  # Performance Tuning
+  cache_warmup: true
+  cache_warmup_size: 1000
+
+  # Security Hardening
+  cors_origins: ["https://hermes.company.com"]
+  csrf_protection: true
+  session_timeout: 7200  # 2 hours
+
+  # Logging Configuration
+  log_level: INFO
+  log_file: "/var/log/hermes/app.log"
+  log_rotation: daily
+  log_retention: 90
+
+  # Backup Configuration
+  backups:
+    enabled: true
+    schedule: "0 2 * * *"  # Daily at 2 AM
+    retention_days: 30
+    backup_dir: "/opt/hermes/backups"
+    compress: true
+
+# === Scale Configuration ===
+scaling:
+  horizontal:
+    enabled: true
+    max_instances: 5
+    min_instances: 2
+    target_cpu_utilization: 70
+    target_memory_utilization: 80
+
+  vertical:
+    auto_scale_memory: true
+    max_memory_gb: 8
+    min_memory_gb: 2
+
+# === Environment-Specific Settings ===
+environment:
+  development:
+    debug: true
+    log_level: DEBUG
+    secret_key: "dev-key-change-in-production"
+    auto_apply_safe: true
+
+  staging:
+    debug: false
+    log_level: INFO
+    secret_key: "staging-key-change-in-production"
+    auto_apply_safe: false
+
+  production:
+    debug: false
+    log_level: INFO
+    auto_apply_safe: false
+    monitoring:
+      detailed_logging: true
+      performance_profiling: true
+
+# === Feature Flags ===
+features:
+  autonomous_mode: true
+  self_modification: true
+  autonomous_learning: true
+  self_healing: true
+  advanced_analytics: true
+  threat_detection: true
+  performance_monitoring: true
+
+  # Experimental Features (use with caution)
+  experimental_ml_features: false
+  advanced_code_generation: false
+  cross_system_integration: false

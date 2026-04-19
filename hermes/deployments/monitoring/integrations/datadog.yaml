@@ -1,0 +1,474 @@
+# Datadog Integration Configuration for Hermes AI Assistant
+
+# Datadog Agent DaemonSet
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: datadog-agent
+  namespace: hermes-monitoring
+  labels:
+    app: datadog-agent
+    component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: datadog-agent
+  template:
+    metadata:
+      labels:
+        app: datadog-agent
+        component: monitoring
+      annotations:
+        ad.datadoghq.com/hermes-ai-assistant.checks: |
+          ---
+          init_config:
+          instances:
+            - openmetrics_endpoint: http://localhost:8080/api/metrics
+              namespace: hermes
+              metrics:
+                - hermes_active_conversations_total
+                - hermes_request_duration_seconds
+                - hermes_backend_health_status
+                - hermes_backend_response_time_ms
+                - hermes_backend_success_rate
+                - hermes_autonomous_suggestions_active_total
+                - hermes_recognized_patterns_total
+                - flask_http_request_total
+                - flask_http_request_duration_seconds
+                - flask_http_request_exceptions_total
+    spec:
+      serviceAccountName: datadog-agent
+      containers:
+      - name: datadog-agent
+        image: datadog/agent:7
+        ports:
+        - containerPort: 8125
+          name: dogstatsdport
+          protocol: UDP
+        - containerPort: 8126
+          name: traceport
+          protocol: TCP
+        env:
+        - name: DD_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: datadog-secrets
+              key: api-key
+        - name: DD_SITE
+          value: "datadoghq.com"
+        - name: DD_CLUSTER_NAME
+          value: "hermes-production"
+        - name: DD_ENV
+          value: "production"
+        - name: DD_LOGS_ENABLED
+          value: "true"
+        - name: DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL
+          value: "true"
+        - name: DD_APM_ENABLED
+          value: "true"
+        - name: DD_APM_NON_LOCAL_TRAFFIC
+          value: "true"
+        - name: DD_PROCESS_AGENT_ENABLED
+          value: "true"
+        - name: DD_KUBERNETES_COLLECTOR_ENABLED
+          value: "true"
+        - name: DD_KUBELET_CLIENT_CERT
+          value: "/var/run/kubernetes/kubelet.crt"
+        - name: DD_KUBELET_CLIENT_KEY
+          value: "/var/run/kubernetes/kubelet.key"
+        - name: DD_CONTAINER_EXCLUDE
+          value: "image:name:datadog/agent"
+        - name: DD_AC_INCLUDE
+          value: "hermes-ai-assistant"
+        - name: DD_ORCHESTRATOR_EXPLORER_ENABLED
+          value: "true"
+        - name: DD_DOGSTATSD_ORIGIN_DETECTION
+          value: "true"
+        - name: DD_TAGS
+          value: "env:production,service:hermes,version:1.0.0"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: procdir
+          mountPath: /host/proc
+          readOnly: true
+        - name: cgroups
+          mountPath: /host/sys/fs/cgroup
+          readOnly: true
+        - name: kubeletcert
+          mountPath: /var/run/kubernetes/kubelet.crt
+          readOnly: true
+        - name: kubeletkey
+          mountPath: /var/run/kubernetes/kubelet.key
+          readOnly: true
+        - name: docker_socket
+          mountPath: /var/run/docker.sock
+          readOnly: true
+        - name: logdirectory
+          mountPath: /var/log/pods
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /agent/status
+            port: 8126
+          initialDelaySeconds: 15
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /agent/status
+            port: 8126
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 6
+      volumes:
+      - name: procdir
+        hostPath:
+          path: /proc
+      - name: cgroups
+        hostPath:
+          path: /sys/fs/cgroup
+      - name: kubeletcert
+        hostPath:
+          path: /var/run/kubernetes/kubelet.crt
+      - name: kubeletkey
+        hostPath:
+          path: /var/run/kubernetes/kubelet.key
+      - name: docker_socket
+        hostPath:
+          path: /var/run/docker.sock
+      - name: logdirectory
+        hostPath:
+          path: /var/log/pods
+---
+# Datadog Cluster Agent
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: datadog-cluster-agent
+  namespace: hermes-monitoring
+  labels:
+    app: datadog-cluster-agent
+    component: monitoring
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: datadog-cluster-agent
+  template:
+    metadata:
+      labels:
+        app: datadog-cluster-agent
+        component: monitoring
+      annotations:
+        ad.datadoghq.com/hermes-ai-assistant.check_names: '["openmetrics"]'
+        ad.datadoghq.com/hermes-ai-assistant.init_configs: '[{}]'
+        ad.datadoghq.com/hermes-ai-assistant.instances: '[{"openmetrics_endpoint": "http://hermes-service:8080/api/metrics", "namespace": "hermes", "metrics": ["hermes_active_conversations_total", "hermes_request_duration_seconds", "hermes_backend_health_status"]}]'
+    spec:
+      serviceAccountName: datadog-cluster-agent
+      containers:
+      - name: datadog-cluster-agent
+        image: datadog/cluster-agent:1.18.0
+        env:
+        - name: DD_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: datadog-secrets
+              key: api-key
+        - name: DD_SITE
+          value: "datadoghq.com"
+        - name: DD_CLUSTER_AGENT_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: datadog-secrets
+              key: cluster-agent-auth-token
+        - name: DD_CLUSTER_NAME
+          value: "hermes-production"
+        - name: DD_ENV
+          value: "production"
+        - name: DD_TAGS
+          value: "env:production,service:hermes,version:1.0.0"
+        - name: DD_COLLECT_KUBERNETES_EVENTS
+          value: "true"
+        - name: DD_LEADER_ELECTION
+          value: "true"
+        - name: DD_ORCHESTRATOR_EXPLORER_ENABLED
+          value: "true"
+        - name: DD_EXTERNAL_METRICS_PROVIDER_ENABLED
+          value: "true"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        ports:
+        - containerPort: 5005
+          name: https
+          protocol: TCP
+        - containerPort: 8126
+          name: traceport
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /info
+            port: 5005
+            scheme: HTTPS
+          initialDelaySeconds: 15
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 5005
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 6
+---
+# Datadog Service Accounts
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: datadog-agent
+  namespace: hermes-monitoring
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: datadog-cluster-agent
+  namespace: hermes-monitoring
+---
+# Datadog RBAC
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: datadog-agent
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - nodes/metrics
+  - nodes/spec
+  - nodes/proxy
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  - pods
+  - services
+  - endpoints
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "apps"
+  resources:
+  - replicasets
+  - deployments
+  - statefulsets
+  - daemonsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "batch"
+  resources:
+  - jobs
+  - cronjobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "extensions"
+  resources:
+  - replicasets
+  - deployments
+  - daemonsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "coordination.k8s.io"
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - "events.k8s.io"
+  resources:
+  - events
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: datadog-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: datadog-agent
+subjects:
+- kind: ServiceAccount
+  name: datadog-agent
+  namespace: hermes-monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: datadog-cluster-agent
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - nodes/metrics
+  - nodes/spec
+  - nodes/proxy
+  - pods
+  - services
+  - endpoints
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "apps"
+  resources:
+  - replicasets
+  - deployments
+  - statefulsets
+  - daemonsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "batch"
+  resources:
+  - jobs
+  - cronjobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "rbac.authorization.k8s.io"
+  resources:
+  - clusterroles
+  - clusterrolebindings
+  - roles
+  - rolebindings
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "apiregistration.k8s.io"
+  resources:
+  - apiservices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "coordination.k8s.io"
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - "extensions"
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "networking.k8s.io"
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: datadog-cluster-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: datadog-cluster-agent
+subjects:
+- kind: ServiceAccount
+  name: datadog-cluster-agent
+  namespace: hermes-monitoring
+---
+# Datadog Secrets (create manually)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: datadog-secrets
+  namespace: hermes-monitoring
+type: Opaque
+data:
+  # Base64 encoded values
+  api-key: <BASE64_ENCODED_DATADOG_API_KEY>
+  cluster-agent-auth-token: <BASE64_ENCODED_AUTH_TOKEN>

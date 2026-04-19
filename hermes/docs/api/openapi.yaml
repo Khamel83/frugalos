@@ -1,0 +1,1426 @@
+openapi: 3.0.3
+info:
+  title: Hermes Autonomous AI Assistant API
+  description: |
+    Comprehensive API documentation for the Hermes Autonomous AI Assistant.
+
+    Hermes is an advanced AI system that combines meta-learning, backend-agnostic architecture,
+    and autonomous operations to provide intelligent assistance with self-improving capabilities.
+
+    ## Features
+    - **Meta-Learning Engine**: Intelligent question generation and pattern recognition
+    - **Backend Management**: Support for multiple AI providers with intelligent routing
+    - **Autonomous Operations**: Self-scheduling, suggestion engine, and context automation
+    - **Self-Improving System**: Code modification, autonomous learning, and self-healing
+    - **Advanced Analytics**: AI-powered insights and evidence-based recommendations
+
+    ## Authentication
+    The API uses Bearer token authentication. Include your token in the Authorization header:
+    ```
+    Authorization: Bearer your-api-token-here
+    ```
+  version: 1.0.0
+  contact:
+    name: Hermes AI Team
+    email: api@hermes-ai.com
+    url: https://hermes-ai.com
+  license:
+    name: MIT License
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.hermes-ai.com/v1
+    description: Production server
+  - url: https://staging-api.hermes-ai.com/v1
+    description: Staging server
+  - url: http://localhost:8080/api
+    description: Development server
+
+security:
+  - BearerAuth: []
+
+paths:
+  /orchestrator/conversation:
+    post:
+      tags:
+        - Orchestrator
+      summary: Create new conversation
+      description: |
+        Initializes a new conversation session with the Hermes AI Assistant.
+        Each conversation has a unique ID that should be used for subsequent requests.
+      operationId: createConversation
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConversationRequest'
+            examples:
+              basic:
+                summary: Basic conversation
+                value:
+                  context:
+                    user_id: "user123"
+                    session_type: "general"
+              with_metadata:
+                summary: Conversation with metadata
+                value:
+                  context:
+                    user_id: "user123"
+                    session_type: "technical"
+                    domain: "software_development"
+                    preferences:
+                      response_style: "detailed"
+                      language: "en"
+      responses:
+        '201':
+          description: Conversation created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationResponse'
+              examples:
+                success:
+                  summary: Successful conversation creation
+                  value:
+                    success: true
+                    data:
+                      conversation_id: "conv_1234567890"
+                      created_at: "2024-01-01T12:00:00Z"
+                      expires_at: "2024-01-01T14:00:00Z"
+                    message: "Conversation created successfully"
+                    timestamp: "2024-01-01T12:00:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /orchestrator/execute:
+    post:
+      tags:
+        - Orchestrator
+      summary: Execute intelligent task
+      description: |
+        Executes an intelligent task using the Hermes AI Assistant with full meta-learning
+        and autonomous operation capabilities.
+      operationId: executeTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecuteRequest'
+            examples:
+              simple_task:
+                summary: Simple analysis task
+                value:
+                  conversation_id: "conv_1234567890"
+                  idea: "Analyze user behavior patterns"
+                  context:
+                    domain: "analytics"
+                    priority: "normal"
+              complex_task:
+                summary: Complex development task
+                value:
+                  conversation_id: "conv_1234567890"
+                  idea: "Optimize database queries for better performance"
+                  context:
+                    domain: "software_development"
+                    priority: "high"
+                    constraints:
+                      max_execution_time: 300
+                      budget_cents: 500
+                    requirements:
+                      include_code_examples: true
+                      detailed_explanation: true
+      responses:
+        '200':
+          description: Task executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecuteResponse'
+              examples:
+                success:
+                  summary: Successful task execution
+                  value:
+                    success: true
+                    data:
+                      task_id: "task_1234567890"
+                      conversation_id: "conv_1234567890"
+                      result:
+                        summary: "Analysis completed successfully"
+                        details: "User behavior patterns identified and documented"
+                        suggestions: ["Implement A/B testing", "Add user feedback collection"]
+                        confidence_score: 0.87
+                      execution_metadata:
+                        backend_used: "openai_gpt4"
+                        execution_time_ms: 2340
+                        cost_cents: 15
+                        tokens_used: 1250
+                    message: "Task executed successfully"
+                    timestamp: "2024-01-01T12:05:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /orchestrator/status:
+    get:
+      tags:
+        - Orchestrator
+      summary: Get system status
+      description: |
+        Returns the current status of the Hermes system including health checks,
+        active backends, and system metrics.
+      operationId: getSystemStatus
+      parameters:
+        - name: include_backends
+          in: query
+          description: Include detailed backend status
+          required: false
+          schema:
+            type: boolean
+            default: false
+        - name: include_metrics
+          in: query
+          description: Include system metrics
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: System status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemStatusResponse'
+              examples:
+                basic:
+                  summary: Basic system status
+                  value:
+                    success: true
+                    data:
+                      status: "healthy"
+                      version: "1.0.0"
+                      uptime_seconds: 86400
+                      active_conversations: 45
+                    message: "System status retrieved successfully"
+                    timestamp: "2024-01-01T12:00:00Z"
+                detailed:
+                  summary: Detailed system status with backends
+                  value:
+                    success: true
+                    data:
+                      status: "healthy"
+                      version: "1.0.0"
+                      uptime_seconds: 86400
+                      active_conversations: 45
+                      backends:
+                        openai_gpt4:
+                          status: "healthy"
+                          response_time_ms: 1200
+                          success_rate: 0.98
+                          cost_per_1k_tokens: 0.03
+                        anthropic_claude:
+                          status: "healthy"
+                          response_time_ms: 1500
+                          success_rate: 0.97
+                          cost_per_1k_tokens: 0.015
+                      metrics:
+                        cpu_usage_percent: 45.2
+                        memory_usage_percent: 67.8
+                        requests_per_minute: 120
+                        average_response_time_ms: 1350
+                    message: "System status retrieved successfully"
+                    timestamp: "2024-01-01T12:00:00Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /metalearning/generate-questions:
+    post:
+      tags:
+        - Meta-Learning
+      summary: Generate intelligent questions
+      description: |
+        Generates contextual questions for a given idea using meta-learning algorithms.
+        Questions are designed to gather missing information and clarify requirements.
+      operationId: generateQuestions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateQuestionsRequest'
+            examples:
+              simple_idea:
+                summary: Simple idea with basic questions
+                value:
+                  idea: "Improve customer retention"
+                  max_questions: 5
+                  conversation_id: "conv_1234567890"
+              detailed_request:
+                summary: Detailed request with context
+                value:
+                  idea: "Optimize mobile app performance"
+                  max_questions: 8
+                  conversation_id: "conv_1234567890"
+                  context:
+                    domain: "mobile_development"
+                    current_metrics:
+                      app_load_time: "3.2s"
+                      crash_rate: "2.1%"
+                      user_rating: "4.2/5"
+                  question_types: ["clarification", "requirement", "constraint"]
+      responses:
+        '200':
+          description: Questions generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateQuestionsResponse'
+              examples:
+                success:
+                  summary: Successful question generation
+                  value:
+                    success: true
+                    data:
+                      questions:
+                        - id: "q1"
+                          question: "What specific aspects of customer retention would you like to focus on?"
+                          type: "clarification"
+                          category: "specificity"
+                          priority: "high"
+                        - id: "q2"
+                          question: "What is your current customer churn rate?"
+                          type: "requirement"
+                          category: "metrics"
+                          priority: "medium"
+                        - id: "q3"
+                          question: "What resources are available for implementing retention strategies?"
+                          type: "constraint"
+                          category: "resources"
+                          priority: "medium"
+                      idea_analysis:
+                        category: "business_strategy"
+                        confidence: 0.85
+                        missing_info_score: 0.72
+                    message: "Questions generated successfully"
+                    timestamp: "2024-01-01T12:00:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /metalearning/recognize-patterns:
+    post:
+      tags:
+        - Meta-Learning
+      summary: Recognize patterns
+      description: |
+        Recognizes patterns in conversation context and provides insights based on
+        historical data and learned patterns.
+      operationId: recognizePatterns
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecognizePatternsRequest'
+      responses:
+        '200':
+          description: Patterns recognized successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecognizePatternsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /autonomous/suggestions:
+    get:
+      tags:
+        - Autonomous Operations
+      summary: Get intelligent suggestions
+      description: |
+        Retrieves intelligent suggestions generated by the autonomous suggestion engine.
+        Suggestions are based on system performance, user behavior, and learned patterns.
+      operationId: getSuggestions
+      parameters:
+        - name: min_confidence
+          in: query
+          description: Minimum confidence threshold for suggestions
+          required: false
+          schema:
+            type: number
+            format: float
+            minimum: 0
+            maximum: 1
+            default: 0.6
+        - name: max_active
+          in: query
+          description: Maximum number of suggestions to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - name: category
+          in: query
+          description: Filter suggestions by category
+          required: false
+          schema:
+            type: string
+            enum: [performance, optimization, security, feature, maintenance]
+      responses:
+        '200':
+          description: Suggestions retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetSuggestionsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /autonomous/schedule:
+    post:
+      tags:
+        - Autonomous Operations
+      summary: Schedule autonomous task
+      description: |
+        Schedules an autonomous task for execution based on the provided schedule
+        and configuration.
+      operationId: scheduleTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleTaskRequest'
+      responses:
+        '201':
+          description: Task scheduled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleTaskResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /backends/health:
+    get:
+      tags:
+        - Backend Management
+      summary: Get backend health status
+      description: |
+        Retrieves the health status of all configured AI backends including
+        response times, success rates, and availability.
+      operationId: getBackendHealth
+      parameters:
+        - name: backend_id
+          in: query
+          description: Filter by specific backend ID
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Backend health retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackendHealthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /backends/performance:
+    get:
+      tags:
+        - Backend Management
+      summary: Get backend performance metrics
+      description: |
+        Retrieves detailed performance metrics for AI backends including
+        response times, costs, and efficiency ratings.
+      operationId: getBackendPerformance
+      parameters:
+        - name: time_range
+          in: query
+          description: Time range for metrics
+          required: false
+          schema:
+            type: string
+            enum: [1h, 24h, 7d, 30d]
+            default: 24h
+        - name: backend_id
+          in: query
+          description: Filter by specific backend ID
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Performance metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackendPerformanceResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /backends/costs:
+    get:
+      tags:
+        - Backend Management
+      summary: Get cost tracking information
+      description: |
+        Retrieves cost tracking information including daily/monthly spending,
+        budget utilization, and cost optimization suggestions.
+      operationId: getCostTracking
+      parameters:
+        - name: period
+          in: query
+          description: Period for cost analysis
+          required: false
+          schema:
+            type: string
+            enum: [daily, weekly, monthly]
+            default: monthly
+        - name: include_optimization
+          in: query
+          description: Include cost optimization suggestions
+          required: false
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: Cost tracking information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CostTrackingResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ConversationRequest:
+      type: object
+      properties:
+        context:
+          $ref: '#/components/schemas/ConversationContext'
+      example:
+        context:
+          user_id: "user123"
+          session_type: "general"
+          domain: "software_development"
+
+    ConversationContext:
+      type: object
+      properties:
+        user_id:
+          type: string
+          description: Unique identifier for the user
+          example: "user123"
+        session_type:
+          type: string
+          enum: [general, technical, creative, analytical]
+          description: Type of conversation session
+          example: "technical"
+        domain:
+          type: string
+          description: Domain or area of expertise
+          example: "software_development"
+        preferences:
+          $ref: '#/components/schemas/UserPreferences'
+
+    UserPreferences:
+      type: object
+      properties:
+        response_style:
+          type: string
+          enum: [concise, detailed, conversational, formal]
+          description: Preferred response style
+          example: "detailed"
+        language:
+          type: string
+          description: Preferred language
+          example: "en"
+        max_response_length:
+          type: integer
+          description: Maximum response length in tokens
+          example: 2000
+
+    ConversationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            conversation_id:
+              type: string
+              description: Unique conversation identifier
+              example: "conv_1234567890"
+            created_at:
+              type: string
+              format: date-time
+              example: "2024-01-01T12:00:00Z"
+            expires_at:
+              type: string
+              format: date-time
+              example: "2024-01-01T14:00:00Z"
+        message:
+          type: string
+          example: "Conversation created successfully"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+
+    ExecuteRequest:
+      type: object
+      required:
+        - conversation_id
+        - idea
+      properties:
+        conversation_id:
+          type: string
+          description: Conversation ID from previous conversation creation
+          example: "conv_1234567890"
+        idea:
+          type: string
+          description: The task or idea to execute
+          example: "Analyze user behavior patterns and suggest improvements"
+        context:
+          $ref: '#/components/schemas/ExecutionContext'
+
+    ExecutionContext:
+      type: object
+      properties:
+        domain:
+          type: string
+          description: Domain of the task
+          example: "analytics"
+        priority:
+          type: string
+          enum: [low, normal, high, urgent]
+          description: Task priority
+          example: "high"
+        constraints:
+          $ref: '#/components/schemas/TaskConstraints'
+        requirements:
+          $ref: '#/components/schemas/TaskRequirements'
+
+    TaskConstraints:
+      type: object
+      properties:
+        max_execution_time:
+          type: integer
+          description: Maximum execution time in seconds
+          example: 300
+        budget_cents:
+          type: integer
+          description: Maximum budget in cents
+          example: 500
+        backends:
+          type: array
+          items:
+            type: string
+          description: Preferred backends to use
+          example: ["openai_gpt4", "anthropic_claude"]
+
+    TaskRequirements:
+      type: object
+      properties:
+        include_code_examples:
+          type: boolean
+          description: Include code examples in response
+          example: true
+        detailed_explanation:
+          type: boolean
+          description: Provide detailed explanations
+          example: true
+        references:
+          type: array
+          items:
+            type: string
+          description: Include references or sources
+          example: ["official_docs", "best_practices"]
+
+    ExecuteResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            task_id:
+              type: string
+              example: "task_1234567890"
+            conversation_id:
+              type: string
+              example: "conv_1234567890"
+            result:
+              $ref: '#/components/schemas/TaskResult'
+            execution_metadata:
+              $ref: '#/components/schemas/ExecutionMetadata'
+        message:
+          type: string
+          example: "Task executed successfully"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:05:00Z"
+
+    TaskResult:
+      type: object
+      properties:
+        summary:
+          type: string
+          description: Brief summary of the result
+          example: "Analysis completed successfully"
+        details:
+          type: string
+          description: Detailed result explanation
+          example: "User behavior patterns identified and documented"
+        suggestions:
+          type: array
+          items:
+            type: string
+          description: Generated suggestions
+          example: ["Implement A/B testing", "Add user feedback collection"]
+        confidence_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Confidence in the result
+          example: 0.87
+        next_steps:
+          type: array
+          items:
+            type: string
+          description: Recommended next steps
+          example: ["Implement tracking", "Monitor metrics"]
+
+    ExecutionMetadata:
+      type: object
+      properties:
+        backend_used:
+          type: string
+          description: Backend used for execution
+          example: "openai_gpt4"
+        execution_time_ms:
+          type: integer
+          description: Execution time in milliseconds
+          example: 2340
+        cost_cents:
+          type: integer
+          description: Cost in cents
+          example: 15
+        tokens_used:
+          type: integer
+          description: Number of tokens used
+          example: 1250
+        optimization_applied:
+          type: boolean
+          description: Whether optimization was applied
+          example: true
+
+    SystemStatusResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            status:
+              type: string
+              enum: [healthy, degraded, unhealthy]
+              example: "healthy"
+            version:
+              type: string
+              example: "1.0.0"
+            uptime_seconds:
+              type: integer
+              example: 86400
+            active_conversations:
+              type: integer
+              example: 45
+            backends:
+              type: object
+              additionalProperties:
+                $ref: '#/components/schemas/BackendStatus'
+            metrics:
+              $ref: '#/components/schemas/SystemMetrics'
+        message:
+          type: string
+          example: "System status retrieved successfully"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+
+    BackendStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy, unavailable]
+          example: "healthy"
+        response_time_ms:
+          type: integer
+          example: 1200
+        success_rate:
+          type: number
+          format: float
+          example: 0.98
+        cost_per_1k_tokens:
+          type: number
+          format: float
+          example: 0.03
+        last_check:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+
+    SystemMetrics:
+      type: object
+      properties:
+        cpu_usage_percent:
+          type: number
+          format: float
+          example: 45.2
+        memory_usage_percent:
+          type: number
+          format: float
+          example: 67.8
+        requests_per_minute:
+          type: integer
+          example: 120
+        average_response_time_ms:
+          type: integer
+          example: 1350
+        error_rate:
+          type: number
+          format: float
+          example: 0.02
+
+    GenerateQuestionsRequest:
+      type: object
+      required:
+        - idea
+      properties:
+        idea:
+          type: string
+          description: The idea to generate questions for
+          example: "Improve customer retention"
+        max_questions:
+          type: integer
+          minimum: 1
+          maximum: 20
+          default: 5
+          description: Maximum number of questions to generate
+          example: 5
+        conversation_id:
+          type: string
+          description: Conversation ID
+          example: "conv_1234567890"
+        context:
+          type: object
+          description: Additional context for question generation
+        question_types:
+          type: array
+          items:
+            type: string
+            enum: [clarification, requirement, constraint, assumption, scope, metrics]
+          description: Types of questions to generate
+          example: ["clarification", "requirement", "constraint"]
+
+    GenerateQuestionsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            questions:
+              type: array
+              items:
+                $ref: '#/components/schemas/GeneratedQuestion'
+            idea_analysis:
+              $ref: '#/components/schemas/IdeaAnalysis'
+        message:
+          type: string
+          example: "Questions generated successfully"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+
+    GeneratedQuestion:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "q1"
+        question:
+          type: string
+          example: "What specific aspects of customer retention would you like to focus on?"
+        type:
+          type: string
+          enum: [clarification, requirement, constraint, assumption, scope, metrics]
+          example: "clarification"
+        category:
+          type: string
+          example: "specificity"
+        priority:
+          type: string
+          enum: [low, medium, high]
+          example: "high"
+        rationale:
+          type: string
+          description: Why this question is important
+          example: "Understanding specific focus areas helps provide targeted solutions"
+
+    IdeaAnalysis:
+      type: object
+      properties:
+        category:
+          type: string
+          example: "business_strategy"
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          example: 0.85
+        missing_info_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          example: 0.72
+        complexity_level:
+          type: string
+          enum: [simple, moderate, complex]
+          example: "moderate"
+
+    RecognizePatternsRequest:
+      type: object
+      required:
+        - conversation_id
+      properties:
+        conversation_id:
+          type: string
+          example: "conv_1234567890"
+        context:
+          type: object
+          description: Current context for pattern recognition
+        include_historical:
+          type: boolean
+          default: true
+          description: Include historical patterns
+
+    RecognizePatternsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            patterns:
+              type: array
+              items:
+                $ref: '#/components/schemas/RecognizedPattern'
+            insights:
+              type: array
+              items:
+                type: string
+              example: ["User frequently asks about performance optimization"]
+        message:
+          type: string
+          example: "Patterns recognized successfully"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+
+    RecognizedPattern:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "pattern_123"
+        name:
+          type: string
+          example: "Performance Optimization Inquiry"
+        category:
+          type: string
+          example: "user_behavior"
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          example: 0.92
+        frequency:
+          type: integer
+          description: How often this pattern occurs
+          example: 15
+        recommendation:
+          type: string
+          description: Recommended action based on pattern
+          example: "Provide detailed performance optimization guides"
+
+    GetSuggestionsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            suggestions:
+              type: array
+              items:
+                $ref: '#/components/schemas/IntelligentSuggestion'
+            total_count:
+              type: integer
+              example: 12
+        message:
+          type: string
+          example: "Suggestions retrieved successfully"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+
+    IntelligentSuggestion:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "suggestion_456"
+        title:
+          type: string
+          example: "Implement response caching"
+        description:
+          type: string
+          example: "Response caching can improve performance by 40%"
+        category:
+          type: string
+          enum: [performance, optimization, security, feature, maintenance]
+          example: "performance"
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          example: 0.87
+        impact_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          example: 0.92
+        effort_level:
+          type: string
+          enum: [low, medium, high]
+          example: "medium"
+        auto_applicable:
+          type: boolean
+          example: false
+        estimated_benefit:
+          type: string
+          example: "40% performance improvement"
+
+    ScheduleTaskRequest:
+      type: object
+      required:
+        - task_type
+        - schedule
+      properties:
+        task_type:
+          type: string
+          enum: [analysis, optimization, cleanup, backup, health_check]
+          example: "analysis"
+        schedule:
+          type: string
+          description: Cron expression for scheduling
+          example: "0 */6 * * *"
+        config:
+          type: object
+          description: Task-specific configuration
+          example:
+            analysis_type: "performance"
+            include_recommendations: true
+        enabled:
+          type: boolean
+          default: true
+          example: true
+
+    ScheduleTaskResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            task_id:
+              type: string
+              example: "task_789"
+            next_run:
+              type: string
+              format: date-time
+              example: "2024-01-01T18:00:00Z"
+            status:
+              type: string
+              enum: [scheduled, active, paused, completed]
+              example: "scheduled"
+        message:
+          type: string
+          example: "Task scheduled successfully"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+
+    BackendHealthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            backends:
+              type: object
+              additionalProperties:
+                $ref: '#/components/schemas/BackendStatus'
+            overall_health:
+              type: string
+              enum: [healthy, degraded, unhealthy]
+              example: "healthy"
+            last_updated:
+              type: string
+              format: date-time
+              example: "2024-01-01T12:00:00Z"
+        message:
+          type: string
+          example: "Backend health retrieved successfully"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+
+    BackendPerformanceResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            time_range:
+              type: string
+              example: "24h"
+            backends:
+              type: object
+              additionalProperties:
+                $ref: '#/components/schemas/BackendPerformanceMetrics'
+            summary:
+              $ref: '#/components/schemas/PerformanceSummary'
+        message:
+          type: string
+          example: "Performance metrics retrieved successfully"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+
+    BackendPerformanceMetrics:
+      type: object
+      properties:
+        average_response_time_ms:
+          type: number
+          format: float
+          example: 1250.5
+        p95_response_time_ms:
+          type: number
+          format: float
+          example: 2300.0
+        success_rate:
+          type: number
+          format: float
+          example: 0.97
+        total_requests:
+          type: integer
+          example: 1250
+        total_cost_cents:
+          type: integer
+          example: 450
+        error_rate:
+          type: number
+          format: float
+          example: 0.03
+        uptime_percentage:
+          type: number
+          format: float
+          example: 99.8
+
+    PerformanceSummary:
+      type: object
+      properties:
+        best_performing_backend:
+          type: string
+          example: "openai_gpt4"
+        most_cost_effective:
+          type: string
+          example: "anthropic_claude"
+        total_requests:
+          type: integer
+          example: 5000
+        total_cost_cents:
+          type: integer
+          example: 1800
+        average_response_time_ms:
+          type: number
+          format: float
+          example: 1450.2
+
+    CostTrackingResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            period:
+              type: string
+              example: "monthly"
+            total_cost_cents:
+              type: integer
+              example: 2500
+            budget_cents:
+              type: integer
+              example: 5000
+            utilization_percentage:
+              type: number
+              format: float
+              example: 50.0
+            breakdown:
+              type: object
+              additionalProperties:
+                type: integer
+              example:
+                openai_gpt4: 1800
+                anthropic_claude: 700
+            trends:
+              type: array
+              items:
+                $ref: '#/components/schemas/CostTrend'
+            optimization_suggestions:
+              type: array
+              items:
+                type: string
+              example: ["Consider using Claude for simple queries to reduce costs"]
+        message:
+          type: string
+          example: "Cost tracking information retrieved successfully"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+
+    CostTrend:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+          example: "2024-01-01"
+        cost_cents:
+          type: integer
+          example: 85
+        requests:
+          type: integer
+          example: 150
+
+  responses:
+    BadRequest:
+      description: Bad request - Invalid parameters
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: string
+                example: "Invalid request parameters"
+              details:
+                type: object
+                example:
+                  field: "conversation_id"
+                  message: "Required field missing"
+              timestamp:
+                type: string
+                format: date-time
+                example: "2024-01-01T12:00:00Z"
+
+    Unauthorized:
+      description: Unauthorized - Invalid or missing authentication
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: string
+                example: "Unauthorized access"
+              message:
+                type: string
+                example: "Valid authentication token required"
+              timestamp:
+                type: string
+                format: date-time
+                example: "2024-01-01T12:00:00Z"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: string
+                example: "Resource not found"
+              message:
+                type: string
+                example: "The requested resource was not found"
+              timestamp:
+                type: string
+                format: date-time
+                example: "2024-01-01T12:00:00Z"
+
+    RateLimited:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: string
+                example: "Rate limit exceeded"
+              message:
+                type: string
+                example: "Too many requests. Please try again later."
+              retry_after:
+                type: integer
+                example: 60
+              timestamp:
+                type: string
+                format: date-time
+                example: "2024-01-01T12:00:00Z"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: string
+                example: "Internal server error"
+              message:
+                type: string
+                example: "An unexpected error occurred"
+              request_id:
+                type: string
+                example: "req_1234567890"
+              timestamp:
+                type: string
+                format: date-time
+                example: "2024-01-01T12:00:00Z"
+
+tags:
+  - name: Orchestrator
+    description: Core orchestrator operations for managing conversations and executing tasks
+  - name: Meta-Learning
+    description: Meta-learning capabilities including question generation and pattern recognition
+  - name: Autonomous Operations
+    description: Autonomous features including suggestions and task scheduling
+  - name: Backend Management
+    description: Backend management including health monitoring and performance metrics

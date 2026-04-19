@@ -1,0 +1,536 @@
+# New Relic Integration Configuration for Hermes AI Assistant
+
+# New Relic Agent DaemonSet
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: newrelic-infrastructure
+  namespace: hermes-monitoring
+  labels:
+    app: newrelic-infrastructure
+    component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: newrelic-infrastructure
+  template:
+    metadata:
+      labels:
+        app: newrelic-infrastructure
+        component: monitoring
+      annotations:
+        # New Relic Prometheus integration annotations
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: newrelic-infrastructure
+      containers:
+      - name: newrelic-infrastructure
+        image: newrelic/infrastructure-k8s:3.0.0
+        env:
+        - name: NRIA_LICENSE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: newrelic-secrets
+              key: license-key
+        - name: NRIA_CLUSTER_NAME
+          value: "hermes-production"
+        - name: NRIA_DISPLAY_NAME
+          value: "Hermes AI Assistant"
+        - name: NRIA_TIMEOUT
+          value: "30"
+        - name: NRIA_CONFIG_PATH
+          value: "/etc/newrelic-infra.yml"
+        - name: NRIA_VERBOSE
+          value: "0"
+        - name: NRIA_CUSTOM_ATTRIBUTES
+          value: "env=production,service=hermes,version=1.0.0"
+        - name: NR_K8S_POD_LABELS_AS_ATTRIBUTES
+          value: "app,version,component"
+        - name: NR_K8S_NODE_LABELS_AS_ATTRIBUTES
+          value: "node.kubernetes.io/instance-type,topology.kubernetes.io/zone"
+        - name: NR_K8S_NAMESPACE_LABELS_AS_ATTRIBUTES
+          value: "name,kubernetes.io/metadata.name"
+        - name: NRIA_INTEGRATIONS_CONFIG_PATH
+          value: "/etc/newrelic-integrations.yml"
+        resources:
+          requests:
+            memory: "100Mi"
+            cpu: "100m"
+          limits:
+            memory: "200Mi"
+            cpu: "200m"
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/newrelic-infra.yml
+          subPath: newrelic-infra.yml
+        - name: integrations-config
+          mountPath: /etc/newrelic-integrations.yml
+          subPath: newrelic-integrations.yml
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: config-volume
+        configMap:
+          name: newrelic-infra-config
+      - name: integrations-config
+        configMap:
+          name: newrelic-integrations-config
+      - name: tmp
+        emptyDir: {}
+---
+# New Relic Prometheus Agent
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: newrelic-prometheus-agent
+  namespace: hermes-monitoring
+  labels:
+    app: newrelic-prometheus-agent
+    component: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: newrelic-prometheus-agent
+  template:
+    metadata:
+      labels:
+        app: newrelic-prometheus-agent
+        component: monitoring
+    spec:
+      serviceAccountName: newrelic-prometheus-agent
+      containers:
+      - name: newrelic-prometheus-agent
+        image: newrelic/nri-prometheus-cfg:2.7.0
+        env:
+        - name: LICENSE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: newrelic-secrets
+              key: license-key
+        - name: CLUSTER_NAME
+          value: "hermes-production"
+        - name: DISPLAY_NAME
+          value: "Hermes Prometheus Agent"
+        - name: METRIC_MATCH_MODE
+          value: "exact"
+        - name: NR_STANDALONE
+          value: "true"
+        - name: CONFIG_FILE_PATH
+          value: "/etc/newrelic-infra.yml"
+        - name: TIMEOUT
+          value: "30"
+        - name: VERBOSE
+          value: "1"
+        - name: EMIT_INTEGRATIONS
+          value: "true"
+        - name: CUSTOM_ATTRIBUTES
+          value: "env=production,service=hermes,version=1.0.0"
+        resources:
+          requests:
+            memory: "200Mi"
+            cpu: "200m"
+          limits:
+            memory: "400Mi"
+            cpu: "400m"
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/newrelic-infra.yml
+          subPath: newrelic-infra.yml
+        - name: prometheus-config
+          mountPath: /etc/prometheus-config.yml
+          subPath: prometheus-config.yml
+        - name: tmp
+          mountPath: /tmp
+        ports:
+        - containerPort: 9090
+          name: metrics
+          protocol: TCP
+      volumes:
+      - name: config-volume
+        configMap:
+          name: newrelic-infra-config
+      - name: prometheus-config
+        configMap:
+          name: newrelic-prometheus-config
+      - name: tmp
+        emptyDir: {}
+---
+# New Relic Service Accounts
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: newrelic-infrastructure
+  namespace: hermes-monitoring
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: newrelic-prometheus-agent
+  namespace: hermes-monitoring
+---
+# New Relic RBAC
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: newrelic-infrastructure
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - nodes/metrics
+  - nodes/proxy
+  - namespaces
+  - pods
+  - services
+  - endpoints
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "apps"
+  resources:
+  - replicasets
+  - deployments
+  - statefulsets
+  - daemonsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "batch"
+  resources:
+  - jobs
+  - cronjobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "extensions"
+  resources:
+  - replicasets
+  - deployments
+  - daemonsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: newrelic-infrastructure
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: newrelic-infrastructure
+subjects:
+- kind: ServiceAccount
+  name: newrelic-infrastructure
+  namespace: hermes-monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: newrelic-prometheus-agent
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - nodes/metrics
+  - namespaces
+  - pods
+  - services
+  - endpoints
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "apps"
+  resources:
+  - replicasets
+  - deployments
+  - statefulsets
+  - daemonsets
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: newrelic-prometheus-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: newrelic-prometheus-agent
+subjects:
+- kind: ServiceAccount
+  name: newrelic-prometheus-agent
+  namespace: hermes-monitoring
+---
+# New Relic Configuration ConfigMaps
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: newrelic-infra-config
+  namespace: hermes-monitoring
+data:
+  newrelic-infra.yml: |
+    # New Relic Infrastructure Agent Configuration
+    license_key: ${NRIA_LICENSE_KEY}
+    display_name: ${NRIA_DISPLAY_NAME}
+    log_file: "/var/log/newrelic-infra.log"
+    verbose: ${NRIA_VERBOSE:-0}
+    metrics_process_samples: 1
+    metrics_network_sample_rate: 10
+    metrics_disk_sample_rate: 300
+    metrics_docker_sample_rate: 30
+    metrics_nstats_sample_rate: 30
+    enable_process_metrics: true
+    enable_network_metrics: true
+    enable_docker_metrics: true
+    enable_kubernetes_metrics: true
+
+    # Kubernetes Integration
+    kubernetes:
+      api_host: https://kubernetes.default.svc
+      kubelet_host: https://kubernetes.default.svc
+      kubelet_port: 10250
+
+    # Custom Attributes
+    custom_attributes:
+      environment: production
+      service: hermes
+      version: "1.0.0"
+
+    # Labels to attributes
+    kubernetes:
+      labels_to_attributes:
+        app: service
+        version: version
+        component: component
+        hermes-ai-assistant: hermes_component
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: newrelic-integrations-config
+  namespace: hermes-monitoring
+data:
+  newrelic-integrations.yml: |
+    # New Relic Integrations Configuration
+    integrations:
+      # Prometheus Integration for Hermes metrics
+      - name: nri-prometheus
+        config:
+          # Prometheus scraper configuration
+          targets:
+            - description: "Hermes AI Assistant Metrics"
+              urls:
+                - "http://hermes-service:8080/api/metrics"
+              bearer_token: ""
+              tls_config:
+                insecure_skip_verify: true
+                insecure: true
+              metrics:
+                - prefix: "hermes"
+                  match_mode: exact
+                  submatch_mode: exact
+                  name: "hermes_.*"
+            - description: "Hermes Backend Metrics"
+              urls:
+                - "http://hermes-service:8080/api/backends/performance"
+              metrics:
+                - prefix: "hermes_backend"
+                  match_mode: exact
+                  name: "hermes_backend_.*"
+
+      # Nginx Integration
+      - name: nginx-integration
+        env:
+          METRICS_ENDPOINT: "http://nginx-service:9113/metrics"
+
+      # Redis Integration
+      - name: redis-integration
+        env:
+          HOST: "redis-service"
+          PORT: 6379
+          PASSWORD: "${REDIS_PASSWORD}"
+
+      # PostgreSQL Integration
+      - name: postgresql-integration
+        env:
+          HOSTNAME: "postgres-service"
+          PORT: 5432
+          USERNAME: "postgres"
+          PASSWORD: "${POSTGRES_PASSWORD}"
+          DATABASE: "hermes"
+
+      # Kubernetes Events Integration
+      - name: kubernetes-events
+        config:
+          # Collect events from all namespaces
+          namespace_filter:
+            include:
+              - "hermes"
+              - "hermes-monitoring"
+          # Filter events by severity
+          event_type_filter:
+            include:
+              - "Normal"
+              - "Warning"
+            exclude:
+              - "Debug"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: newrelic-prometheus-config
+  namespace: hermes-monitoring
+data:
+  prometheus-config.yml: |
+    # Prometheus Configuration for New Relic Integration
+    cluster_name: "hermes-production"
+    targets:
+      # Hermes Application Metrics
+      - description: "Hermes AI Assistant Application Metrics"
+        urls:
+          - "http://hermes-service:8080/api/metrics"
+        bearer_token: ""
+        tls_config:
+          insecure_skip_verify: true
+          insecure: true
+        use_service_account: false
+        metrics_filter:
+          include:
+            - "hermes_active_conversations_total"
+            - "hermes_request_duration_seconds"
+            - "hermes_backend_health_status"
+            - "hermes_backend_response_time_ms"
+            - "hermes_backend_success_rate"
+            - "hermes_autonomous_suggestions_active_total"
+            - "hermes_recognized_patterns_total"
+            - "flask_http_request_total"
+            - "flask_http_request_duration_seconds"
+            - "flask_http_request_exceptions_total"
+            - "flask_http_request_exceptions_total_by_type"
+            - "hermes_backend_requests_total"
+            - "hermes_backend_cost_cents_total"
+            - "hermes_metalearning_enabled"
+            - "hermes_autonomous_operations_enabled"
+            - "hermes_system_health_status"
+          exclude:
+            - "go_.*"
+            - "process_.*"
+            - "prometheus_.*"
+
+      # Backend Performance Metrics
+      - description: "Hermes Backend Performance Metrics"
+        urls:
+          - "http://hermes-service:8080/api/backends/performance"
+        metrics_filter:
+          include:
+            - "hermes_backend_.*"
+
+      # Nginx Metrics
+      - description: "Nginx Metrics"
+        urls:
+          - "http://nginx-service:9113/metrics"
+        metrics_filter:
+          include:
+            - "nginx_.*"
+
+      # Redis Metrics
+      - description: "Redis Metrics"
+        urls:
+          - "http://redis-service:9121/metrics"
+        metrics_filter:
+          include:
+            - "redis_.*"
+
+      # PostgreSQL Metrics
+      - description: "PostgreSQL Metrics"
+        urls:
+          - "http://postgres-exporter:9187/metrics"
+        metrics_filter:
+          include:
+            - "pg_.*"
+
+    # Metrics processing configuration
+    metric_parser_mode: "regex"
+    attribute_renamings:
+      # Rename metrics for better visualization in New Relic
+      hermes_active_conversations_total: "hermes.conversations.active"
+      hermes_request_duration_seconds: "hermes.request.duration"
+      hermes_backend_health_status: "hermes.backend.health"
+      hermes_backend_response_time_ms: "hermes.backend.response_time"
+      hermes_backend_success_rate: "hermes.backend.success_rate"
+      hermes_autonomous_suggestions_active_total: "hermes.suggestions.active"
+      hermes_recognized_patterns_total: "hermes.patterns.recognized"
+
+    # Custom attributes
+    custom_attributes:
+      environment: "production"
+      service: "hermes"
+      version: "1.0.0"
+      team: "ai-assistant"
+
+    # Labels to attributes configuration
+    labels_to_attributes:
+      - label: "backend_name"
+        attribute: "backend.name"
+      - label: "method"
+        attribute: "http.method"
+      - label: "status_code"
+        attribute: "http.status_code"
+---
+# New Relic Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: newrelic-prometheus-agent
+  namespace: hermes-monitoring
+  labels:
+    app: newrelic-prometheus-agent
+    component: monitoring
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/metrics"
+spec:
+  selector:
+    app: newrelic-prometheus-agent
+  ports:
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+    protocol: TCP
+---
+# New Relic Secrets (create manually)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: newrelic-secrets
+  namespace: hermes-monitoring
+type: Opaque
+data:
+  # Base64 encoded values
+  license-key: <BASE64_ENCODED_NEWRELIC_LICENSE_KEY>

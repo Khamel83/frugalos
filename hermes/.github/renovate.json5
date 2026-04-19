@@ -1,0 +1,93 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:base",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    ":automergeDigest",
+    ":automergeBranch",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "timezone": "UTC",
+  "schedule": ["before 6am on monday"],
+  "labels": ["dependencies"],
+  "assignees": ["@hermes-maintainers"],
+  "reviewers": ["@hermes-maintainers"],
+  "prConcurrentLimit": 3,
+  "prHourlyLimit": 2,
+  "platformAutomerge": true,
+  "python": {
+    "rangeStrategy": "bump"
+  },
+  "docker": {
+    "rangeStrategy": "bump"
+  },
+  "packageRules": [
+    {
+      "matchDatasources": ["docker"],
+      "groupName": "Docker dependencies",
+      "schedule": ["before 6am on monday"],
+      "automerge": true
+    },
+    {
+      "matchDatasources": ["pip"],
+      "groupName": "Python dependencies",
+      "schedule": ["before 6am on monday"],
+      "automerge": true,
+      "rangeStrategy": "bump"
+    },
+    {
+      "matchDatasources": ["github-tags"],
+      "groupName": "GitHub Actions",
+      "schedule": ["before 6am on monday"],
+      "automerge": true
+    },
+    {
+      "matchPackageNames": [
+        "flask",
+        "sqlalchemy",
+        "redis",
+        "celery"
+      ],
+      "groupName": "Core Python dependencies",
+      "automerge": false,
+      "minimumReleaseAge": "7 days"
+    },
+    {
+      "matchPackageNames": [
+        "postgres",
+        "redis",
+        "nginx"
+      ],
+      "groupName": "Infrastructure dependencies",
+      "automerge": false,
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "groupName": "Patch updates"
+    },
+    {
+      "matchUpdateTypes": ["minor"],
+      "automerge": true,
+      "groupName": "Minor updates"
+    },
+    {
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "groupName": "Major updates",
+      "minimumReleaseAge": "14 days"
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "schedule": ["at any time"],
+    "automerge": false
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "automerge": true,
+    "schedule": ["before 6am on monday"]
+  }
+}

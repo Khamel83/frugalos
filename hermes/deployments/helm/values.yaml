@@ -1,0 +1,521 @@
+# Default values for hermes-ai-assistant Helm chart
+# This is a YAML-formatted file
+
+# Global configuration
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  annotations: {}
+  labels: {}
+
+# Image configuration
+image:
+  registry: docker.io
+  repository: hermes-ai-assistant
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+# Replica count
+replicaCount: 3
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+# Autoscaling
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 10
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+  annotations: {}
+  labels: {}
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: hermes.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: hermes-tls
+      hosts:
+        - hermes.example.com
+
+# Persistence configuration
+persistence:
+  data:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 10Gi
+    annotations: {}
+  cache:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteMany
+    size: 5Gi
+    annotations: {}
+  logs:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteMany
+    size: 2Gi
+    annotations: {}
+
+# Configuration management
+config:
+  # Application configuration
+  appName: hermes
+  environment: production
+  logLevel: INFO
+  debug: false
+
+  # Database configuration
+  database:
+    type: postgresql
+    host: ""
+    port: 5432
+    name: hermes
+    user: hermes
+    sslMode: require
+    connectionPoolSize: 10
+    connectionTimeout: 30
+
+  # Redis configuration
+  redis:
+    host: ""
+    port: 6379
+    db: 0
+    connectionPoolSize: 10
+    password: ""
+
+  # Backend configuration
+  backends:
+    openai:
+      enabled: true
+      apiKey: ""
+      maxTokens: 4096
+      temperature: 0.7
+      timeout: 30
+    anthropic:
+      enabled: true
+      apiKey: ""
+      maxTokens: 4096
+      temperature: 0.7
+      timeout: 30
+    google:
+      enabled: true
+      apiKey: ""
+      maxTokens: 4096
+      temperature: 0.7
+      timeout: 30
+
+  # Feature flags
+  features:
+    metaLearning: true
+    autonomousOperations: true
+    selfModification: true
+    selfHealing: true
+    advancedAnalytics: true
+    threatDetection: true
+    performanceMonitoring: true
+
+  # Performance settings
+  performance:
+    maxWorkers: 20
+    threadPoolSize: 50
+    connectionPoolSize: 20
+    cacheWarmup: true
+    cacheWarmupSize: 1000
+
+  # Security settings
+  security:
+    corsOrigins: ["https://hermes.example.com"]
+    csrfProtection: true
+    sessionTimeout: 7200
+    rateLimiting:
+      enabled: true
+      requestsPerMinute: 300
+      burstLimit: 500
+
+  # Cost management
+  costs:
+    dailyBudgetCents: 500
+    monthlyBudgetCents: 15000
+    enablePersistence: true
+
+# Secret configuration
+secrets:
+  # Automatically create secrets from values
+  create: true
+
+  # Secret references (if not creating)
+  existingSecrets:
+    hermesSecret: ""
+    databaseSecret: ""
+    redisSecret: ""
+    backendSecrets: ""
+
+  # Secret values
+  hermes:
+    secretKey: ""
+    databaseUrl: ""
+    redisUrl: ""
+
+  backendKeys:
+    openaiApiKey: ""
+    anthropicApiKey: ""
+    googleApiKey: ""
+
+# Service account configuration
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod configuration
+pod:
+  annotations: {}
+  labels: {}
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    runAsGroup: 1001
+    fsGroup: 1001
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+
+  # Container security context
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop:
+        - ALL
+
+# Liveness and readiness probes
+livenessProbe:
+  httpGet:
+    path: /api/orchestrator/status
+    port: http
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 3
+  successThreshold: 1
+
+readinessProbe:
+  httpGet:
+    path: /api/orchestrator/status
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+startupProbe:
+  httpGet:
+    path: /api/orchestrator/status
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
+  successThreshold: 1
+
+# Health check configuration
+healthCheck:
+  enabled: true
+  path: /api/orchestrator/status
+  port: 8080
+  scheme: HTTP
+
+# Node configuration
+nodeSelector: {}
+tolerations: []
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - hermes-ai-assistant
+          topologyKey: kubernetes.io/hostname
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+  maxUnavailable: ""
+
+# Network policies
+networkPolicy:
+  enabled: true
+  ingress:
+    enabled: true
+    rules:
+      - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+        ports:
+          - protocol: TCP
+            port: 8080
+  egress:
+    enabled: true
+    rules:
+      - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgresql
+        ports:
+          - protocol: TCP
+            port: 5432
+      - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+        ports:
+          - protocol: TCP
+            port: 6379
+
+# PostgreSQL dependency configuration
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: ""
+    username: hermes
+    password: ""
+    database: hermes
+  primary:
+    persistence:
+      enabled: true
+      size: 20Gi
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+
+# Redis dependency configuration
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: ""
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+
+  # Prometheus configuration
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+      path: /api/metrics
+      port: http
+
+    # Custom metrics
+    customMetrics:
+      enabled: true
+      rules:
+        - name: hermes_active_conversations
+          query: 'hermes_active_conversations_total'
+        - name: hermes_request_duration
+          query: 'histogram_quantile(0.95, rate(flask_http_request_duration_seconds_bucket[5m]))'
+        - name: hermes_backend_health
+          query: 'hermes_backend_health_status'
+        - name: hermes_error_rate
+          query: 'rate(flask_http_request_exceptions_total[5m]) / rate(flask_http_request_total[5m])'
+
+  # Grafana configuration
+  grafana:
+    enabled: true
+    sidecar:
+      dashboards:
+        enabled: true
+        searchNamespace: ["hermes"]
+    adminPassword: ""
+    plugins:
+      - grafana-piechart-panel
+      - grafana-worldmap-panel
+      - grafana-clock-panel
+
+# Logging configuration
+logging:
+  level: INFO
+  format: json
+  enabled: true
+
+  # Log collection
+  collection:
+    enabled: true
+    tool: fluentbit
+    fluentbit:
+      enabled: true
+      resources:
+        limits:
+          cpu: 200m
+          memory: 200Mi
+        requests:
+          cpu: 100m
+          memory: 100Mi
+
+# Backup configuration
+backup:
+  enabled: true
+  schedule: "0 2 * * *"
+  retention: 30
+  storage:
+    type: s3
+    s3:
+      bucket: ""
+      region: ""
+      accessKey: ""
+      secretKey: ""
+      endpoint: ""
+
+# Update strategy
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+# Additional volumes
+extraVolumes: []
+extraVolumeMounts: []
+
+# Additional containers
+extraContainers: []
+
+# Init containers
+initContainers: []
+
+# Environment variables
+extraEnv: []
+extraEnvFrom: []
+
+# Additional annotations and labels
+commonAnnotations: {}
+commonLabels: {}
+
+# Pod priority
+priorityClassName: ""
+
+# Runtime class
+runtimeClassName: ""
+
+# Topology spread constraints
+topologySpreadConstraints: []
+
+# Horizontal Pod Autoscaler
+hpa:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+# Vertical Pod Autoscaler
+vpa:
+  enabled: false
+  updateMode: "Auto"
+
+# Pod security policies
+podSecurityPolicy:
+  enabled: false
+
+# RBAC
+rbac:
+  create: true
+  rules: []
+
+# Service monitors
+serviceMonitor:
+  enabled: true
+  namespace: ""
+  labels: {}
+  annotations: {}
+  interval: 30s
+  scrapeTimeout: 10s
+
+# Custom resource definitions
+customResourceDefinitions: {}
+
+# Additional manifests
+extraManifests: []

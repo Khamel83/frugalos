@@ -17,9 +17,9 @@ logger = logging.getLogger(__name__)
 class Database:
     """SQLite database manager for Hermes application"""
 
-    def __init__(self, config: Optional[Config] = None):
+    def __init__(self, config: Optional[Config] = None, database_path: Optional[str] = None):
         self.config = config or Config()
-        self.db_path = self.config.get('database.path', 'hermes.db')
+        self.db_path = database_path or self.config.get('database.path', 'hermes.db')
 
     @contextmanager
     def get_connection(self):
@@ -37,6 +37,17 @@ class Database:
         finally:
             if conn:
                 conn.close()
+
+    def execute(self, query: str, params: tuple = None):
+        """Execute a query and return results (for testing)"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            if params:
+                result = cursor.execute(query, params)
+            else:
+                result = cursor.execute(query)
+            # Fetch and return the result for testing
+            return result.fetchone()
 
     def initialize(self):
         """Initialize database with all required tables"""

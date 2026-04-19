@@ -1,0 +1,169 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: hermes-ai-assistant
+  namespace: hermes
+
+resources:
+  # Namespaces
+  - namespace.yaml
+
+  # Core Infrastructure
+  - postgres.yaml
+  - redis.yaml
+
+  # Application
+  - hermes.yaml
+  - nginx.yaml
+
+  # Configuration and Secrets
+  - configmap.yaml
+  - secrets.yaml
+
+  # Monitoring
+  - monitoring.yaml
+
+  # RBAC and Security
+  - rbac.yaml
+
+# Common labels
+commonLabels:
+  app: hermes-ai-assistant
+  version: v1.0.0
+  managed-by: kustomize
+
+# Common annotations
+commonAnnotations:
+  config.kubernetes.io/origin: hermes-ai-assistant
+  config.kubernetes.io/version: v1.0.0
+
+# Patches for different environments
+patchesStrategicMerge:
+  # Environment-specific patches would go here
+  # - patches/production-patch.yaml
+
+# Configurations
+configurations:
+  # Custom configurations would go here
+
+# Generators
+configMapGenerator:
+  - name: hermes-version
+    literals:
+      - VERSION=v1.0.0
+      - BUILD_DATE=2024-01-XX
+      - GIT_COMMIT=abcdef123456
+
+secretGenerator:
+  - name: hermes-build-secrets
+    literals:
+      - BUILD_NUMBER=123
+
+# Replicas and resource adjustments
+replicas:
+  - name: hermes
+    count: 3
+  - name: nginx
+    count: 2
+  - name: prometheus
+    count: 1
+  - name: grafana
+    count: 1
+
+# Images with custom registry
+images:
+  - name: hermes-ai-assistant
+    newTag: v1.0.0
+    newName: your-registry.com/hermes-ai-assistant
+
+# Namespace override
+namespace: hermes
+
+# Name prefix and suffix
+namePrefix: hermes-
+nameSuffix: -prod
+
+# Vars for substitution
+vars:
+  - name: HERMES_VERSION
+    objref:
+      kind: ConfigMap
+      name: hermes-version
+      apiVersion: v1
+    fieldref:
+      fieldpath: data.VERSION
+
+# Replacement patterns
+replacements:
+  - source:
+      kind: ConfigMap
+      name: hermes-version
+      fieldPath: data.VERSION
+    targets:
+      - select:
+          kind: Deployment
+          name: hermes
+        fieldPaths:
+          - spec.template.spec.containers.[name=hermes].image
+        options:
+          delimiter: ':'
+          index: 1
+
+# Patches for production optimizations
+patches:
+  # Production resource patches
+  - target:
+      kind: Deployment
+      name: hermes
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/resources/requests
+        value:
+          memory: "1Gi"
+          cpu: "500m"
+      - op: add
+        path: /spec/template/spec/containers/0/resources/limits
+        value:
+          memory: "2Gi"
+          cpu: "1000m"
+
+  # Production HPA patches
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: hermes-hpa
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 3
+      - op: replace
+        path: /spec/maxReplicas
+        value: 10
+
+  # Production probe patches
+  - target:
+      kind: Deployment
+      name: hermes
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/livenessProbe
+        value:
+          httpGet:
+            path: /api/orchestrator/status
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+      - op: add
+        path: /spec/template/spec/containers/0/readinessProbe
+        value:
+          httpGet:
+            path: /api/orchestrator/status
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3

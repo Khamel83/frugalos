@@ -1,0 +1,213 @@
+version: '3.8'
+
+services:
+  hermes-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: hermes-prod
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - HERMES_SECRET_KEY=${HERMES_SECRET_KEY}
+      - DATABASE_URL=sqlite:///opt/hermes/data/hermes.db
+      - REDIS_URL=redis://redis:6379/0
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+    volumes:
+      - ./data:/opt/hermes/data
+      - ./cache:/opt/hermes/cache
+      - ./logs:/var/log/hermes
+      - ./backups:/opt/hermes/backups
+      - ./config:/opt/hermes/config
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - hermes-network
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: hermes-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru
+    networks:
+      - hermes-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: hermes-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=hermes
+      - POSTGRES_USER=hermes
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - hermes-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  nginx:
+    image: nginx:alpine
+    container_name: hermes-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - hermes-app
+    networks:
+      - hermes-network
+
+  monitoring:
+    image: prom/prometheus:latest
+    container_name: hermes-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    networks:
+      - hermes-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: hermes-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning
+    depends_on:
+      - monitoring
+    networks:
+      - hermes-network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: hermes-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - hermes-network
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.0
+    container_name: hermes-kibana
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - hermes-network
+
+volumes:
+  data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/hermes/data
+
+  cache:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/hermes/cache
+
+  logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/log/hermes
+
+  backups:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/hermes/backups
+
+  config:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/hermes/config
+
+  redis-data:
+    driver: local
+
+  postgres-data:
+    driver: local
+
+  prometheus-data:
+    driver: local
+
+  grafana-data:
+    driver: local
+
+  elasticsearch-data:
+    driver: local
+
+networks:
+  hermes-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

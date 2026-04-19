@@ -1,0 +1,429 @@
+groups:
+  # Hermes System Alerts
+  - name: hermes-system
+    rules:
+      - alert: HermesDown
+        expr: up{job="hermes"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: hermes
+          component: system
+        annotations:
+          summary: "Hermes instance is down"
+          description: "Hermes instance {{ $labels.instance }} has been down for more than 2 minutes."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/hermes-down"
+
+      - alert: HighErrorRate
+        expr: rate(flask_http_request_exceptions_total[5m]) / rate(flask_http_request_total[5m]) * 100 > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: hermes
+          component: api
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | printf \"%.2f\" }}% on {{ $labels.instance }}."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/high-error-rate"
+
+      - alert: CriticalErrorRate
+        expr: rate(flask_http_request_exceptions_total[5m]) / rate(flask_http_request_total[5m]) * 100 > 10
+        for: 2m
+        labels:
+          severity: critical
+          service: hermes
+          component: api
+        annotations:
+          summary: "Critical error rate detected"
+          description: "Error rate is {{ $value | printf \"%.2f\" }}% on {{ $labels.instance }}."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/critical-error-rate"
+
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(flask_http_request_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: hermes
+          component: performance
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is {{ $value }}s on {{ $labels.instance }}."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/high-response-time"
+
+      - alert: CriticalResponseTime
+        expr: histogram_quantile(0.95, rate(flask_http_request_duration_seconds_bucket[5m])) > 10
+        for: 2m
+        labels:
+          severity: critical
+          service: hermes
+          component: performance
+        annotations:
+          summary: "Critical response time detected"
+          description: "95th percentile response time is {{ $value }}s on {{ $labels.instance }}."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/critical-response-time"
+
+      - alert: HighRequestRate
+        expr: rate(flask_http_request_total[5m]) > 100
+        for: 10m
+        labels:
+          severity: warning
+          service: hermes
+          component: load
+        annotations:
+          summary: "High request rate detected"
+          description: "Request rate is {{ $value }} requests/second on {{ $labels.instance }}."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/high-request-rate"
+
+      - alert: LowActiveConversations
+        expr: hermes_active_conversations_total < 1
+        for: 15m
+        labels:
+          severity: warning
+          service: hermes
+          component: usage
+        annotations:
+          summary: "No active conversations"
+          description: "No active conversations for 15 minutes. Check system usage."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/low-usage"
+
+  # Backend Management Alerts
+  - name: hermes-backends
+    rules:
+      - alert: BackendUnhealthy
+        expr: hermes_backend_health_status != 1
+        for: 3m
+        labels:
+          severity: warning
+          service: hermes
+          component: backends
+        annotations:
+          summary: "Backend {{ $labels.backend_name }} is unhealthy"
+          description: "Backend {{ $labels.backend_name }} has been unhealthy for more than 3 minutes."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/backend-unhealthy"
+
+      - alert: BackendDown
+        expr: hermes_backend_health_status == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: hermes
+          component: backends
+        annotations:
+          summary: "Backend {{ $labels.backend_name }} is down"
+          description: "Backend {{ $labels.backend_name }} is completely down."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/backend-down"
+
+      - alert: BackendHighResponseTime
+        expr: hermes_backend_response_time_ms > 10000
+        for: 5m
+        labels:
+          severity: warning
+          service: hermes
+          component: backends
+        annotations:
+          summary: "High response time for backend {{ $labels.backend_name }}"
+          description: "Backend {{ $labels.backend_name }} response time is {{ $value }}ms."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/backend-slow"
+
+      - alert: BackendLowSuccessRate
+        expr: hermes_backend_success_rate < 0.90
+        for: 5m
+        labels:
+          severity: warning
+          service: hermes
+          component: backends
+        annotations:
+          summary: "Low success rate for backend {{ $labels.backend_name }}"
+          description: "Backend {{ $labels.backend_name }} success rate is {{ $value | printf \"%.2f\" }}%."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/backend-errors"
+
+      - alert: BackendHighCostRate
+        expr: rate(hermes_backend_cost_cents_total[5m]) > 100
+        for: 10m
+        labels:
+          severity: warning
+          service: hermes
+          component: costs
+        annotations:
+          summary: "High cost rate for backend {{ $labels.backend_name }}"
+          description: "Backend {{ $labels.backend_name }} cost rate is ${{ $value | printf \"%.2f\" }}/minute."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/high-costs"
+
+  # Meta-Learning Alerts
+  - name: hermes-metalearning
+    rules:
+      - alert: MetaLearningDisabled
+        expr: hermes_metalearning_enabled == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: hermes
+          component: metalearning
+        annotations:
+          summary: "Meta-learning is disabled"
+          description: "Meta-learning functionality has been disabled."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/metalearning-disabled"
+
+      - alert: LowPatternRecognition
+        expr: increase(hermes_recognized_patterns_total[1h]) < 10
+        for: 2h
+        labels:
+          severity: warning
+          service: hermes
+          component: metalearning
+        annotations:
+          summary: "Low pattern recognition rate"
+          description: "Only {{ $value }} patterns recognized in the last hour."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/low-pattern-recognition"
+
+      - alert: QuestionGenerationFailure
+        expr: increase(hermes_question_generation_failures_total[10m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: hermes
+          component: metalearning
+        annotations:
+          summary: "Question generation failures"
+          description: "{{ $value }} question generation failures in the last 10 minutes."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/question-generation"
+
+  # Autonomous Operations Alerts
+  - name: hermes-autonomous
+    rules:
+      - alert: AutonomousOperationsDisabled
+        expr: hermes_autonomous_operations_enabled == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: hermes
+          component: autonomous
+        annotations:
+          summary: "Autonomous operations are disabled"
+          description: "Autonomous operations functionality has been disabled."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/autonomous-disabled"
+
+      - alert: SchedulerFailure
+        expr: increase(hermes_scheduler_failures_total[10m]) > 3
+        for: 5m
+        labels:
+          severity: warning
+          service: hermes
+          component: scheduler
+        annotations:
+          summary: "Scheduler failures detected"
+          description: "{{ $value }} scheduler failures in the last 10 minutes."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/scheduler-failures"
+
+      - alert: HighActiveSuggestions
+        expr: hermes_autonomous_suggestions_active_total > 50
+        for: 15m
+        labels:
+          severity: warning
+          service: hermes
+          component: suggestions
+        annotations:
+          summary: "High number of active suggestions"
+          description: "{{ $value }} active suggestions may indicate suggestion backlog."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/suggestion-backlog"
+
+      - alert: SuggestionEngineFailure
+        expr: increase(hermes_suggestion_engine_failures_total[10m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: hermes
+          component: suggestions
+        annotations:
+          summary: "Suggestion engine failures"
+          description: "{{ $value }} suggestion engine failures in the last 10 minutes."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/suggestion-engine"
+
+  # Infrastructure Alerts
+  - name: hermes-infrastructure
+    rules:
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 10m
+        labels:
+          severity: warning
+          service: hermes
+          component: infrastructure
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value | printf \"%.1f\" }}% on {{ $labels.instance }}."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/high-cpu"
+
+      - alert: CriticalCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 95
+        for: 5m
+        labels:
+          severity: critical
+          service: hermes
+          component: infrastructure
+        annotations:
+          summary: "Critical CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value | printf \"%.1f\" }}% on {{ $labels.instance }}."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/critical-cpu"
+
+      - alert: HighMemoryUsage
+        expr: 100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 85
+        for: 10m
+        labels:
+          severity: warning
+          service: hermes
+          component: infrastructure
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value | printf \"%.1f\" }}% on {{ $labels.instance }}."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/high-memory"
+
+      - alert: CriticalMemoryUsage
+        expr: 100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 95
+        for: 5m
+        labels:
+          severity: critical
+          service: hermes
+          component: infrastructure
+        annotations:
+          summary: "Critical memory usage on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value | printf \"%.1f\" }}% on {{ $labels.instance }}."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/critical-memory"
+
+      - alert: DiskSpaceLow
+        expr: 100 * (1 - (node_filesystem_avail_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"})) > 85
+        for: 15m
+        labels:
+          severity: warning
+          service: hermes
+          component: infrastructure
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Disk usage is {{ $value | printf \"%.1f\" }}% on {{ $labels.device }} at {{ $labels.instance }}."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/low-disk-space"
+
+      - alert: DiskSpaceCritical
+        expr: 100 * (1 - (node_filesystem_avail_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"})) > 95
+        for: 5m
+        labels:
+          severity: critical
+          service: hermes
+          component: infrastructure
+        annotations:
+          summary: "Critical disk space on {{ $labels.instance }}"
+          description: "Disk usage is {{ $value | printf \"%.1f\" }}% on {{ $labels.device }} at {{ $labels.instance }}."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/critical-disk-space"
+
+  # Database Alerts
+  - name: hermes-database
+    rules:
+      - alert: PostgreSQLDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: hermes
+          component: database
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL instance {{ $labels.instance }} has been down for more than 1 minute."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/postgresql-down"
+
+      - alert: PostgreSQLHighConnections
+        expr: pg_stat_activity_count / pg_settings_max_connections * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: hermes
+          component: database
+        annotations:
+          summary: "High PostgreSQL connection usage"
+          description: "PostgreSQL connection usage is {{ $value | printf \"%.1f\" }}%."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/postgresql-connections"
+
+      - alert: PostgreSQLSlowQueries
+        expr: rate(pg_stat_statements_mean_time_seconds[5m]) > 1
+        for: 10m
+        labels:
+          severity: warning
+          service: hermes
+          component: database
+        annotations:
+          summary: "Slow PostgreSQL queries detected"
+          description: "Average query time is {{ $value }}s."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/postgresql-slow"
+
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: hermes
+          component: cache
+        annotations:
+          summary: "Redis is down"
+          description: "Redis instance {{ $labels.instance }} has been down for more than 1 minute."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/redis-down"
+
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes / redis_memory_max_bytes * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+          service: hermes
+          component: cache
+        annotations:
+          summary: "High Redis memory usage"
+          description: "Redis memory usage is {{ $value | printf \"%.1f\" }}%."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/redis-memory"
+
+  # Cost and Budget Alerts
+  - name: hermes-costs
+    rules:
+      - alert: DailyBudgetWarning
+        expr: increase(hermes_total_cost_cents_total[24h]) > hermes_daily_budget_cents * 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: hermes
+          component: costs
+        annotations:
+          summary: "Daily budget warning"
+          description: "Daily cost (${{ $value | printf \"%.2f\" }}) is 80% of budget (${{ hermes_daily_budget_cents / 100 | printf \"%.2f\" }})."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/budget-warning"
+
+      - alert: DailyBudgetExceeded
+        expr: increase(hermes_total_cost_cents_total[24h]) > hermes_daily_budget_cents
+        for: 1m
+        labels:
+          severity: critical
+          service: hermes
+          component: costs
+        annotations:
+          summary: "Daily budget exceeded"
+          description: "Daily cost (${{ $value | printf \"%.2f\" }}) has exceeded budget (${{ hermes_daily_budget_cents / 100 | printf \"%.2f\" }})."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/budget-exceeded"
+
+      - alert: MonthlyBudgetWarning
+        expr: increase(hermes_total_cost_cents_total[30d]) > hermes_monthly_budget_cents * 0.8
+        for: 1h
+        labels:
+          severity: warning
+          service: hermes
+          component: costs
+        annotations:
+          summary: "Monthly budget warning"
+          description: "Monthly cost (${{ $value | printf \"%.2f\" }}) is 80% of budget (${{ hermes_monthly_budget_cents / 100 | printf \"%.2f\" }})."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/monthly-budget-warning"
+
+      - alert: SuddenCostSpike
+        expr: rate(hermes_total_cost_cents_total[5m]) > rate(hermes_total_cost_cents_total[1h] offset 5m) * 3
+        for: 10m
+        labels:
+          severity: warning
+          service: hermes
+          component: costs
+        annotations:
+          summary: "Sudden cost spike detected"
+          description: "Current cost rate (${{ $value | printf \"%.2f\" }}/min) is 3x higher than the hourly average."
+          runbook_url: "https://docs.hermes-ai.com/troubleshooting/cost-spike"

@@ -1,0 +1,11 @@
+{{- if include "hermes-ai-assistant.createConfigMap" . }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "hermes-ai-assistant.fullname" . }}
+  labels:
+    {{- include "hermes-ai-assistant.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    {{- include "hermes-ai-assistant.configData" . | nindent 4 }}
+{{- end }}

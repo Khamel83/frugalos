@@ -1,0 +1,314 @@
+# Artillery performance testing configuration for Hermes AI Assistant
+# Run with: artillery run tests/performance/artillery-config.yml
+
+config:
+  target: '{{ $processEnvironment.TARGET_URL || "http://localhost:8080/api" }}'
+  phases:
+    # Warmup phase
+    - duration: 60
+      arrivalRate: 5
+      name: "Warm up"
+
+    # Load testing phase
+    - duration: 300
+      arrivalRate: 10
+      name: "Load test"
+
+    # Stress testing phase
+    - duration: 120
+      arrivalRate: 25
+      name: "Stress test"
+
+    # Spike testing phase
+    - duration: 60
+      arrivalRate: 50
+      name: "Spike test"
+
+    # Sustained load phase
+    - duration: 300
+      arrivalRate: 15
+      name: "Sustained load"
+
+  processor: "./test-processor.js"
+  variables:
+    userId: '{{ $randomString() }}'
+    sessionId: '{{ $randomString() }}'
+
+  # Default headers
+  headers:
+    Content-Type: 'application/json'
+    User-Agent: 'Hermes-Performance-Test/1.0'
+
+scenarios:
+  # Basic conversation and task execution flow
+  - name: "Basic User Flow"
+    weight: 40
+    flow:
+      # Create conversation
+      - post:
+          url: "/orchestrator/conversation"
+          name: "Create Conversation"
+          json:
+            context:
+              user_id: "{{ userId }}"
+              session_type: "{{ $randomString(['general', 'technical', 'creative', 'analytical']) }}"
+              domain: "{{ $randomString(['software_development', 'business', 'analytics', 'research']) }}"
+              preferences:
+                response_style: "{{ $randomString(['concise', 'detailed']) }}"
+                language: "en"
+          capture:
+            - json: "$.data.conversation_id"
+              as: "conversationId"
+
+      # Execute simple task
+      - think: 2
+      - post:
+          url: "/orchestrator/execute"
+          name: "Execute Simple Task"
+          json:
+            conversation_id: "{{ conversationId }}"
+            idea: "{{ $randomString(['Analyze user behavior patterns', 'Generate performance metrics report', 'Summarize recent system changes']) }}"
+            context:
+              domain: "{{ $randomString(['analytics', 'monitoring', 'business']) }}"
+              priority: "{{ $randomString(['low', 'normal', 'high']) }}"
+              constraints:
+                max_execution_time: 300
+                budget_cents: 50
+
+      # Get system status
+      - think: 1
+      - get:
+          url: "/orchestrator/status?include_metrics=true"
+          name: "Get System Status"
+
+      # Get backend health
+      - think: 1
+      - get:
+          url: "/backends/health"
+          name: "Get Backend Health"
+
+  # Meta-learning and pattern recognition flow
+  - name: "Meta-Learning Flow"
+    weight: 25
+    flow:
+      # Create conversation
+      - post:
+          url: "/orchestrator/conversation"
+          name: "Create Conversation (Meta-Learning)"
+          json:
+            context:
+              user_id: "{{ userId }}"
+              session_type: "analytical"
+              domain: "research"
+              preferences:
+                response_style: "detailed"
+                language: "en"
+          capture:
+            - json: "$.data.conversation_id"
+              as: "conversationId"
+
+      # Generate questions
+      - think: 2
+      - post:
+          url: "/metalearning/generate-questions"
+          name: "Generate Questions"
+          json:
+            idea: "{{ $randomString(['Improve customer retention', 'Enhance mobile app performance', 'Reduce server response times']) }}"
+            max_questions: "{{ $randomNumber(3, 8) }}"
+            conversation_id: "{{ conversationId }}"
+            question_types: ["clarification", "requirement", "constraint"]
+
+      # Recognize patterns
+      - think: 3
+      - post:
+          url: "/metalearning/recognize-patterns"
+          name: "Recognize Patterns"
+          json:
+            conversation_id: "{{ conversationId }}"
+            context:
+              current_session:
+                topic: "{{ $randomString(['performance', 'security', 'development']) }}"
+                duration_minutes: "{{ $randomNumber(5, 60) }}"
+            include_historical: true
+
+      # Execute task with context
+      - think: 2
+      - post:
+          url: "/orchestrator/execute"
+          name: "Execute Context-Aware Task"
+          json:
+            conversation_id: "{{ conversationId }}"
+            idea: "Provide detailed analysis based on recognized patterns"
+            context:
+              domain: "analytics"
+              priority: "high"
+              requirements:
+                detailed_explanation: true
+                references: ["patterns", "historical_data"]
+
+  # Autonomous operations flow
+  - name: "Autonomous Operations Flow"
+    weight: 20
+    flow:
+      # Get suggestions
+      - get:
+          url: "/autonomous/suggestions"
+          name: "Get Autonomous Suggestions"
+          qs:
+            min_confidence: "{{ $randomNumber(50, 90) / 100 }}"
+            max_active: "{{ $randomNumber(5, 20) }}"
+            category: "{{ $randomString(['performance', 'optimization', 'security']) }}"
+
+      # Create conversation
+      - think: 1
+      - post:
+          url: "/orchestrator/conversation"
+          name: "Create Conversation (Autonomous)"
+          json:
+            context:
+              user_id: "{{ userId }}"
+              session_type: "technical"
+              domain: "optimization"
+          capture:
+            - json: "$.data.conversation_id"
+              as: "conversationId"
+
+      # Schedule autonomous task
+      - think: 2
+      - post:
+          url: "/autonomous/schedule"
+          name: "Schedule Autonomous Task"
+          json:
+            task_type: "{{ $randomString(['analysis', 'optimization', 'health_check']) }}"
+            schedule: "0 */6 * * *"
+            config:
+              auto_optimize: true
+              include_recommendations: true
+
+      # Execute optimization task
+      - think: 3
+      - post:
+          url: "/orchestrator/execute"
+          name: "Execute Optimization Task"
+          json:
+            conversation_id: "{{ conversationId }}"
+            idea: "Apply autonomous optimization suggestions"
+            context:
+              domain: "optimization"
+              priority: "normal"
+              constraints:
+                max_execution_time: 600
+                budget_cents: 100
+
+  # Analytics and monitoring flow
+  - name: "Analytics & Monitoring Flow"
+    weight: 15
+    flow:
+      # System status checks
+      - get:
+          url: "/orchestrator/status"
+          name: "System Status Check"
+          qs:
+            include_backends: true
+            include_metrics: true
+
+      # Backend performance metrics
+      - think: 1
+      - get:
+          url: "/backends/performance"
+          name: "Get Backend Performance"
+          qs:
+            time_range: "{{ $randomString(['1h', '24h', '7d']) }}"
+
+      # Cost tracking
+      - think: 1
+      - get:
+          url: "/backends/costs"
+          name: "Get Cost Tracking"
+          qs:
+            period: "{{ $randomString(['daily', 'weekly', 'monthly']) }}"
+            include_optimization: true
+
+      # Get high-confidence suggestions
+      - think: 2
+      - get:
+          url: "/autonomous/suggestions"
+          name: "Get High-Confidence Suggestions"
+          qs:
+            min_confidence: 0.8
+            max_active: 10
+            category: "performance"
+
+      # Backend health check
+      - think: 1
+      - get:
+          url: "/backends/health"
+          name: "Backend Health Check"
+
+  # Complex task execution flow
+  - name: "Complex Task Flow"
+    weight: 10
+    flow:
+      # Create conversation for complex task
+      - post:
+          url: "/orchestrator/conversation"
+          name: "Create Conversation (Complex)"
+          json:
+            context:
+              user_id: "{{ userId }}"
+              session_type: "technical"
+              domain: "software_development"
+              preferences:
+                response_style: "detailed"
+                language: "en"
+                max_response_length: 2000
+          capture:
+            - json: "$.data.conversation_id"
+              as: "conversationId"
+
+      # Generate detailed questions
+      - think: 3
+      - post:
+          url: "/metalearning/generate-questions"
+          name: "Generate Detailed Questions"
+          json:
+            idea: "{{ $randomString(['Design scalable microservices architecture', 'Implement machine learning pipeline', 'Create comprehensive security audit']) }}"
+            max_questions: 10
+            conversation_id: "{{ conversationId }}"
+            question_types: ["clarification", "requirement", "constraint", "scope", "metrics"]
+
+      # Execute complex task
+      - think: 5
+      - post:
+          url: "/orchestrator/execute"
+          name: "Execute Complex Task"
+          json:
+            conversation_id: "{{ conversationId }}"
+            idea: "{{ $randomString(['Optimize database queries for better performance', 'Build real-time analytics dashboard', 'Implement automated testing framework']) }}"
+            context:
+              domain: "software_development"
+              priority: "high"
+              constraints:
+                max_execution_time: 900
+                budget_cents: 200
+                backends: ["openai_gpt4"]
+              requirements:
+                include_code_examples: true
+                detailed_explanation: true
+                references: ["official_docs", "best_practices"]
+
+      # Get performance impact
+      - think: 2
+      - get:
+          url: "/backends/performance"
+          name: "Post-Task Performance Check"
+          qs:
+            time_range: "1h"
+
+      # Get cost impact
+      - think: 1
+      - get:
+          url: "/backends/costs"
+          name: "Post-Task Cost Check"
+          qs:
+            period: "daily"

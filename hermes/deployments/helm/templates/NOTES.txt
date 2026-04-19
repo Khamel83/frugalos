@@ -1,0 +1,171 @@
+Hermes AI Assistant has been successfully deployed!
+
+Your Hermes AI Assistant is now running and ready to use.
+
+{{- if .Values.ingress.enabled }}
+
+## Access Information
+
+{{- range .Values.ingress.hosts }}
+### Web Interface
+URL: http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+
+### API Endpoint
+URL: http{{ if $.Values.ingress.tls }}s{{ end }}://{{ index .Values.ingress.hosts 0 "host" }}/api
+
+### Health Check
+URL: http{{ if $.Values.ingress.tls }}s{{ end }}://{{ index .Values.ingress.hosts 0 "host" }}/api/orchestrator/status
+
+{{- else }}
+
+## Access Information
+
+Since Ingress is not enabled, you can access the service using port-forwarding:
+
+```bash
+kubectl port-forward svc/{{ include "hermes-ai-assistant.fullname" . }} 8080:8080 -n {{ .Release.Namespace }}
+```
+
+Then access:
+- Web Interface: http://localhost:8080
+- API Endpoint: http://localhost:8080/api
+- Health Check: http://localhost:8080/api/orchestrator/status
+
+{{- end }}
+
+## Configuration
+
+### Environment
+- Environment: {{ .Values.config.environment }}
+- Debug Mode: {{ .Values.config.debug }}
+- Log Level: {{ .Values.config.logLevel }}
+
+### Features Enabled
+- Meta-Learning: {{ .Values.config.features.metaLearning }}
+- Autonomous Operations: {{ .Values.config.features.autonomousOperations }}
+- Self-Modification: {{ .Values.config.features.selfModification }}
+- Self-Healing: {{ .Values.config.features.selfHealing }}
+- Advanced Analytics: {{ .Values.config.features.advancedAnalytics }}
+- Threat Detection: {{ .Values.config.features.threatDetection }}
+- Performance Monitoring: {{ .Values.config.features.performanceMonitoring }}
+
+## Backends Configuration
+
+{{- if .Values.config.backends.openai.enabled }}
+- ✅ OpenAI: Enabled
+{{- else }}
+- ❌ OpenAI: Disabled
+{{- end }}
+
+{{- if .Values.config.backends.anthropic.enabled }}
+- ✅ Anthropic: Enabled
+{{- else }}
+- ❌ Anthropic: Disabled
+{{- end }}
+
+{{- if .Values.config.backends.google.enabled }}
+- ✅ Google AI: Enabled
+{{- else }}
+- ❌ Google AI: Disabled
+{{- end }}
+
+## Monitoring
+
+{{- if .Values.monitoring.enabled }}
+
+### Prometheus
+{{- if .Values.monitoring.prometheus.enabled }}
+- Prometheus Service Monitor: Enabled
+- Metrics Path: /api/metrics
+- Scrape Interval: 30s
+{{- end }}
+
+### Grafana
+{{- if .Values.monitoring.grafana.enabled }}
+- Grafana Dashboard: Available
+- Admin Password: {{ .Values.monitoring.grafana.adminPassword | default "admin123" }}
+{{- end }}
+
+{{- end }}
+
+## Database Information
+
+{{- if .Values.postgresql.enabled }}
+### PostgreSQL
+- Host: {{ include "hermes-ai-assistant.postgresql.host" . }}
+- Port: {{ .Values.postgresql.primary.service.ports.postgresql }}
+- Database: {{ .Values.postgresql.auth.database }}
+- User: {{ .Values.postgresql.auth.username }}
+- Persistence: {{ .Values.postgresql.primary.persistence.enabled }}
+- Storage Size: {{ .Values.postgresql.primary.persistence.size }}
+{{- end }}
+
+{{- if .Values.redis.enabled }}
+### Redis
+- Host: {{ include "hermes-ai-assistant.redis.host" . }}
+- Port: {{ .Values.redis.master.service.ports.redis }}
+- Database: {{ .Values.config.redis.db | default 0 }}
+- Persistence: {{ .Values.redis.master.persistence.enabled }}
+- Storage Size: {{ .Values.redis.master.persistence.size }}
+{{- end }}
+
+## Scaling Information
+
+### Current Replicas: {{ .Values.replicaCount }}
+{{- if .Values.autoscaling.enabled }}
+### Autoscaling
+- Min Replicas: {{ .Values.autoscaling.minReplicas }}
+- Max Replicas: {{ .Values.autoscaling.maxReplicas }}
+- Target CPU Utilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}%
+- Target Memory Utilization: {{ .Values.autoscaling.targetMemoryUtilizationPercentage }}%
+{{- end }}
+
+## First Steps
+
+1. **Verify Deployment**
+   ```bash
+   kubectl get pods -l app.kubernetes.io/name={{ include "hermes-ai-assistant.name" . }} -n {{ .Release.Namespace }}
+   ```
+
+2. **Check Logs**
+   ```bash
+   kubectl logs -l app.kubernetes.io/name={{ include "hermes-ai-assistant.name" . }} -n {{ .Release.Namespace }}
+   ```
+
+3. **Test Health Endpoint**
+   ```bash
+   curl {{ if .Values.ingress.enabled }}{{ index .Values.ingress.hosts 0 "host" }}/api/orchestrator/status{{ else }}localhost:8080/api/orchestrator/status{{ end }}
+   ```
+
+4. **Create a Conversation**
+   ```bash
+   curl -X POST {{ if .Values.ingress.enabled }}{{ index .Values.ingress.hosts 0 "host" }}/api/orchestrator/conversation{{ else }}localhost:8080/api/orchestrator/conversation{{ end }} \
+     -H "Content-Type: application/json" \
+     -d '{"context":{"user_id":"test_user","session_type":"general"}}'
+   ```
+
+## Important Notes
+
+- Make sure all required API keys are configured in the secrets
+- Update the `values.yaml` file with your specific configuration
+- Configure SSL/TLS certificates for production use
+- Set up proper backup and monitoring
+- Review the resource limits and adjust based on your needs
+
+## Documentation
+
+For more information, visit:
+- [API Documentation](https://docs.hermes-ai.com/api)
+- [Configuration Guide](https://docs.hermes-ai.com/configuration)
+- [Troubleshooting Guide](https://docs.hermes-ai.com/troubleshooting)
+
+## Support
+
+If you encounter any issues, please:
+1. Check the pod logs
+2. Verify the configuration
+3. Review the troubleshooting documentation
+4. Contact support at support@hermes-ai.com
+
+Happy AI Assistant usage! 🚀

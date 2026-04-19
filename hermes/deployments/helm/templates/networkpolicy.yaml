@@ -1,0 +1,64 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "hermes-ai-assistant.fullname" . }}
+  labels:
+    {{- include "hermes-ai-assistant.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "hermes-ai-assistant.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  {{- if .Values.networkPolicy.ingress.enabled }}
+  ingress:
+    {{- if .Values.networkPolicy.ingress.rules }}
+    {{- toYaml .Values.networkPolicy.ingress.rules | nindent 4 }}
+    {{- else }}
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+        ports:
+          - protocol: TCP
+            port: 8080
+    {{- end }}
+  {{- end }}
+  {{- if .Values.networkPolicy.egress.enabled }}
+  egress:
+    {{- if .Values.networkPolicy.egress.rules }}
+    {{- toYaml .Values.networkPolicy.egress.rules | nindent 4 }}
+    {{- else }}
+    # Allow traffic to PostgreSQL
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgresql
+        ports:
+          - protocol: TCP
+            port: 5432
+    # Allow traffic to Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+        ports:
+          - protocol: TCP
+            port: 6379
+    # Allow DNS resolution
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow HTTPS to external APIs
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443
+    {{- end }}
+  {{- end }}
+{{- end }}

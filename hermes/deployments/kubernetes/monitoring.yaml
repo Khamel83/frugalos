@@ -1,0 +1,417 @@
+---
+# Prometheus Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: hermes-monitoring
+  labels:
+    app: hermes-ai-assistant
+    component: prometheus
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: 'hermes-production'
+        replica: 'prometheus-1'
+
+    rule_files:
+      - "/etc/prometheus/rules/*.yml"
+
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets:
+              - alertmanager:9093
+
+    scrape_configs:
+      # Prometheus itself
+      - job_name: 'prometheus'
+        static_configs:
+          - targets: ['localhost:9090']
+
+      # Hermes Application
+      - job_name: 'hermes'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - hermes
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+
+      # Nginx
+      - job_name: 'nginx'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - hermes
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: hermes-ai-assistant
+          - source_labels: [__meta_kubernetes_pod_label_component]
+            action: keep
+            regex: nginx
+          - source_labels: [__address__]
+            target_label: __address__
+            replacement: $1:9113
+
+      # Node Exporter
+      - job_name: 'node-exporter'
+        kubernetes_sd_configs:
+          - role: pod
+            relabel_configs:
+              - source_labels: [__meta_kubernetes_pod_label_job]
+                action: keep
+                regex: node-exporter
+
+      # Kube-state-metrics
+      - job_name: 'kube-state-metrics'
+        static_configs:
+          - targets: ['kube-state-metrics.kube-system.svc.cluster.local:8080']
+
+  # Alert Rules
+  alerts.yml: |
+    groups:
+    - name: hermes.rules
+      rules:
+      - alert: HermesDown
+        expr: up{job="hermes"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Hermes instance is down"
+          description: "Hermes instance {{ $labels.instance }} has been down for more than 2 minutes."
+
+      - alert: HighErrorRate
+        expr: rate(flask_http_request_exceptions_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} errors per second on {{ $labels.instance }}."
+
+      - alert: HighResponseTime
+        expr: flask_http_request_duration_seconds{quantile="0.95"} > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is {{ $value }} seconds on {{ $labels.instance }}."
+
+      - alert: MemoryUsageHigh
+        expr: (container_memory_usage_bytes / container_spec_memory_limit_bytes) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is above 80% on {{ $labels.pod }}."
+
+      - alert: CPUUsageHigh
+        expr: rate(container_cpu_usage_seconds_total[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is above 80% on {{ $labels.pod }}."
+
+      - alert: DiskSpaceUsage
+        expr: (node_filesystem_size_bytes - node_filesystem_free_bytes) / node_filesystem_size_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk space usage high"
+          description: "Disk usage is {{ $value }}% on {{ $labels.instance }}."
+
+      - alert: DatabaseConnectionsHigh
+        expr: pg_stat_activity_count > 150
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High database connections"
+          description: "Database has {{ $value }} active connections."
+
+      - alert: RedisMemoryHigh
+        expr: redis_memory_used_bytes / redis_memory_max_bytes * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Redis memory usage"
+          description: "Redis memory usage is {{ $value }}%."
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: hermes-monitoring
+  labels:
+    app: hermes-ai-assistant
+    component: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hermes-ai-assistant
+      component: prometheus
+  template:
+    metadata:
+      labels:
+        app: hermes-ai-assistant
+        component: prometheus
+    spec:
+      serviceAccountName: prometheus
+      containers:
+      - name: prometheus
+        image: prom/prometheus:latest
+        ports:
+        - containerPort: 9090
+          name: web
+          protocol: TCP
+        volumeMounts:
+        - name: prometheus-config
+          mountPath: /etc/prometheus
+          readOnly: true
+        - name: prometheus-storage
+          mountPath: /prometheus
+        command:
+        - '/bin/prometheus'
+        - '--config.file=/etc/prometheus/prometheus.yml'
+        - '--storage.tsdb.path=/prometheus'
+        - '--web.console.libraries=/etc/prometheus/console_libraries'
+        - '--web.console.templates=/etc/prometheus/consoles'
+        - '--storage.tsdb.retention.time=30d'
+        - '--web.enable-lifecycle'
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+      volumes:
+      - name: prometheus-config
+        configMap:
+          name: prometheus-config
+      - name: prometheus-storage
+        persistentVolumeClaim:
+          claimName: prometheus-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-pvc
+  namespace: hermes-monitoring
+  labels:
+    app: hermes-ai-assistant
+    component: prometheus
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: fast-ssd
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: hermes-monitoring
+  labels:
+    app: hermes-ai-assistant
+    component: prometheus
+spec:
+  selector:
+    app: hermes-ai-assistant
+    component: prometheus
+  ports:
+  - port: 9090
+    targetPort: 9090
+    name: web
+    protocol: TCP
+  type: ClusterIP
+
+---
+# Grafana Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-config
+  namespace: hermes-monitoring
+  labels:
+    app: hermes-ai-assistant
+    component: grafana
+data:
+  grafana.ini: |
+    [server]
+    domain = hermes.company.com
+    root_url = https://hermes.company.com/grafana/
+    serve_from_sub_path = true
+
+    [security]
+    admin_user = admin
+    admin_password = {{ .Values.grafanaPassword }}
+
+    [database]
+    type = postgres
+    host = postgres-service:5432
+    name = grafana
+    user = grafana
+    password = {{ .Values.grafanaDBPassword }}
+
+    [auth.anonymous]
+    enabled = false
+
+    [users]
+    allow_sign_up = false
+
+    [smtp]
+    enabled = true
+    host = smtp.gmail.com:587
+    user = {{ .Values.smtpUser }}
+    password = {{ .Values.smtpPassword }}
+    from_address = grafana@hermes.company.com
+
+  datasources.yml: |
+    apiVersion: 1
+
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      access: proxy
+      url: http://prometheus:9090
+      isDefault: true
+      editable: true
+
+    - name: Loki
+      type: loki
+      access: proxy
+      url: http://loki:3100
+      editable: true
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: hermes-monitoring
+  labels:
+    app: hermes-ai-assistant
+    component: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hermes-ai-assistant
+      component: grafana
+  template:
+    metadata:
+      labels:
+        app: hermes-ai-assistant
+        component: grafana
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:latest
+        ports:
+        - containerPort: 3000
+          name: web
+          protocol: TCP
+        env:
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: hermes-secrets
+              key: grafana-password
+        - name: GF_DATABASE_TYPE
+          value: postgres
+        - name: GF_DATABASE_HOST
+          value: postgres-service:5432
+        - name: GF_DATABASE_NAME
+          value: grafana
+        - name: GF_DATABASE_USER
+          value: grafana
+        - name: GF_DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: hermes-secrets
+              key: grafana-password
+        volumeMounts:
+        - name: grafana-config
+          mountPath: /etc/grafana
+          readOnly: true
+        - name: grafana-storage
+          mountPath: /var/lib/grafana
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: grafana-config
+        configMap:
+          name: grafana-config
+      - name: grafana-storage
+        persistentVolumeClaim:
+          claimName: grafana-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-pvc
+  namespace: hermes-monitoring
+  labels:
+    app: hermes-ai-assistant
+    component: grafana
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: fast-ssd
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: hermes-monitoring
+  labels:
+    app: hermes-ai-assistant
+    component: grafana
+spec:
+  selector:
+    app: hermes-ai-assistant
+    component: grafana
+  ports:
+  - port: 3000
+    targetPort: 3000
+    name: web
+    protocol: TCP
+  type: ClusterIP
