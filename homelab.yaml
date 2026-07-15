@@ -1,0 +1,32 @@
+schema: homelab.project/v1
+project:
+  id: frugalos
+  name: Frugalos
+  repository: https://github.com/Khamel83/frugalos
+  kind: service
+  lifecycle: development
+  owner: homelab
+monitoring:
+  state: standby
+runtime:
+  production:
+    host: unknown
+    managed_by: unknown
+    unit: frugalos
+health:
+  source: homelab-api
+  checks: []
+observability:
+  event_sink: homelab-api:/observations
+  evidence_policy: sanitized
+dependencies:
+  required: []
+  optional: []
+secrets:
+  broker_consumer: frugalos
+  references: []
+operations:
+  repair_ids: []
+docs:
+  index: README.md
+  operations: docs/OPERATIONS.md
