@@ -1,4 +1,10 @@
 <!-- janitor:begin:recent -->
+### Recent changes
+
+Source commit: `a1ab709af31d161de7340f44936e7dc0e4884b10`.
+
+The published CONTEXT.md already contained five recent-change entries. They are retained below with their source commit identities; no full-history reconstruction is asserted.
+
 - Added Homelab project contract (`9fa468b3d9966e0eb069f47acf4646c291a81ac0`).
 - Bootstrapped LLM-OVERVIEW files (`3f50768d37e41a943fd3e2ed30ca3eb26a89c1e7`).
 - Saved uncommitted work prior to storage cleanup (`30a848d3e86af16b259cc550b0c28660307d0211`).
