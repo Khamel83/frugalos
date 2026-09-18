@@ -1,10 +1,4 @@
 <!-- janitor:begin:todo -->
-### TODO
-
-The published TODO.md already contained the following explicit tasks. They are retained as unverified open tasks because the supplied evidence does not prove completion:
-
-- [ ] Maintain and verify Homelab project contract integration.
-- [ ] Expand and refine Local-First AI Prompt Optimization System MVP.
-- [ ] Expand and refine Local-First AI Routing System MVP.
-- [ ] Review LLM-OVERVIEW files for ongoing maintenance.
+- No published TODO items are present in the remote documentation.
+- Note: Commit `84d095e` referenced retaining published TODO items and commit `30a848d` referenced saving uncommitted work before storage cleanup, but no specific pending tasks are documented in the supplied repository evidence.
 <!-- janitor:end:todo -->
